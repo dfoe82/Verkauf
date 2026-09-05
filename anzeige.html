@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bestellungen">
+<title>Bestellungen</title>
+<style>
+  :root{
+    --chalk-bg: #1c2b23;
+    --chalk-bg-2: #223327;
+    --chalk: #ece6d6;
+    --chalk-dim: #a9b3a6;
+    --amber: #e3a04a;
+    --green: #7fae6f;
+    --line: rgba(236,230,214,0.14);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none;}
+  button{
+    -webkit-appearance: none;
+    appearance: none;
+    margin:0;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: var(--chalk-bg);
+    color: var(--chalk);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    overflow:hidden;
+  }
+  #app{
+    display:flex; flex-direction:column;
+    height:100vh;
+    height:100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header{
+    flex-shrink:0;
+    padding: 14px 16px 12px;
+    text-align:center;
+    border-bottom: 1px dashed var(--line);
+    background: linear-gradient(180deg, var(--chalk-bg-2), var(--chalk-bg));
+  }
+  header h1{
+    margin:0;
+    font-size:19px;
+    font-weight:700;
+  }
+  header .sub{
+    font-size:11px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color: var(--chalk-dim);
+    margin-top:3px;
+  }
+  #status{
+    font-size:10px;
+    color: var(--chalk-dim);
+    margin-top:4px;
+  }
+  #status.offline{ color: #d9765a; }
+
+  #ordersList{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .ordersEmpty{
+    text-align:center;
+    color: var(--chalk-dim);
+    font-size:15px;
+    padding: 60px 20px;
+  }
+  .orderCard{
+    background: var(--chalk-bg-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .orderCard.oldest{
+    border-color: rgba(227,160,74,0.5);
+    background: linear-gradient(180deg, rgba(227,160,74,0.10), var(--chalk-bg-2));
+  }
+  .orderCardHead{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .orderSpot{
+    background: var(--amber);
+    color: #241a0c;
+    font-weight:700;
+    font-size:15px;
+    border-radius:8px;
+    padding:4px 12px;
+  }
+  .orderTime{
+    font-size:13px;
+    color: var(--chalk-dim);
+  }
+  .orderItems{
+    font-size:16px;
+    color: var(--chalk);
+    line-height:1.4;
+    margin-bottom:10px;
+  }
+  .orderFoot{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .orderTotal{
+    font-weight:700;
+    color: var(--amber);
+    font-size:16px;
+  }
+  .orderDoneBtn{
+    padding: 9px 18px;
+    border-radius:9px;
+    border:1px solid rgba(127,174,111,0.4);
+    background: rgba(127,174,111,0.14);
+    color: var(--green);
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .orderDoneBtn:active{ transform:scale(0.95); background: rgba(127,174,111,0.28); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>📋 Bestellungen</h1>
+    <div class="sub" id="spotRangeLabel">Alle Spots</div>
+    <div id="status">Verbinde…</div>
+  </header>
+  <div id="ordersList">
+    <div class="ordersEmpty">Keine offenen Bestellungen</div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, remove, onValue }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCi2tJ0RSBLFwmJWQzvCQvEzm3eTmH6Xm0",
+    authDomain: "verkaufen-9b895.firebaseapp.com",
+    databaseURL: "https://verkaufen-9b895-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "verkaufen-9b895",
+    storageBucket: "verkaufen-9b895.firebasestorage.app",
+    messagingSenderId: "604426578907",
+    appId: "1:604426578907:web:20ef95e71f0672fe0055fe"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const ordersRef = ref(db, 'orders');
+
+  // Spot-Filter aus der URL lesen, z.B. anzeige.html?spots=1-4
+  var params = new URLSearchParams(window.location.search);
+  var spotsParam = params.get('spots');
+  var minSpot = 1, maxSpot = 8;
+  if(spotsParam && spotsParam.indexOf('-') > -1){
+    var parts = spotsParam.split('-');
+    minSpot = parseInt(parts[0], 10);
+    maxSpot = parseInt(parts[1], 10);
+  }
+  document.getElementById('spotRangeLabel').textContent =
+    spotsParam ? ('Spot ' + minSpot + '–' + maxSpot) : 'Alle Spots';
+
+  function fmt(n){
+    return n.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function formatTime(ms){
+    var d = new Date(ms);
+    var hh = d.getHours().toString().padStart(2, '0');
+    var mm = d.getMinutes().toString().padStart(2, '0');
+    return hh + ':' + mm;
+  }
+
+  function render(orders){
+    var listEl = document.getElementById('ordersList');
+
+    if(orders.length === 0){
+      listEl.innerHTML = '<div class="ordersEmpty">Keine offenen Bestellungen</div>';
+      return;
+    }
+
+    var html = '';
+    for(var i = 0; i < orders.length; i++){
+      var order = orders[i];
+      html +=
+        '<div class="orderCard' + (i === 0 ? ' oldest' : '') + '">' +
+          '<div class="orderCardHead">' +
+            '<span class="orderSpot">Spot ' + order.spot + '</span>' +
+            '<span class="orderTime">' + formatTime(order.time) + ' Uhr</span>' +
+          '</div>' +
+          '<div class="orderItems">' + order.itemsText + '</div>' +
+          '<div class="orderFoot">' +
+            '<span class="orderTotal">' + fmt(order.total) + ' €</span>' +
+            '<button type="button" class="orderDoneBtn" data-key="' + order.key + '">Fertig</button>' +
+          '</div>' +
+        '</div>';
+    }
+    listEl.innerHTML = html;
+
+    var doneBtns = listEl.querySelectorAll('.orderDoneBtn');
+    for(var d = 0; d < doneBtns.length; d++){
+      doneBtns[d].addEventListener('click', function(e){
+        e.preventDefault();
+        var key = this.getAttribute('data-key');
+        remove(ref(db, 'orders/' + key));
+      });
+    }
+  }
+
+  var statusEl = document.getElementById('status');
+
+  onValue(ordersRef, function(snapshot){
+    statusEl.textContent = 'Live verbunden';
+    statusEl.classList.remove('offline');
+
+    var data = snapshot.val() || {};
+    var list = [];
+    for(var key in data){
+      var o = data[key];
+      o.key = key;
+      if(o.spot >= minSpot && o.spot <= maxSpot){
+        list.push(o);
+      }
+    }
+    list.sort(function(a, b){ return a.time - b.time; });
+    render(list);
+  }, function(error){
+    statusEl.textContent = 'Keine Verbindung';
+    statusEl.classList.add('offline');
+  });
+
+  // Bildschirm bleibt an, solange die Anzeige läuft
+  if('wakeLock' in navigator){
+    function requestWakeLock(){
+      navigator.wakeLock.request('screen').catch(function(){});
+    }
+    requestWakeLock();
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'visible') requestWakeLock();
+    });
+  }
+</script>
+</body>
+</html>

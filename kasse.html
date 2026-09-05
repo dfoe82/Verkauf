@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kasse">
+<title>Getränkekasse</title>
+<style>
+  :root{
+    --chalk-bg: #1c2b23;
+    --chalk-bg-2: #223327;
+    --chalk: #ece6d6;
+    --chalk-dim: #a9b3a6;
+    --amber: #e3a04a;
+    --blue-chalk: #7fb3c9;
+    --line: rgba(236,230,214,0.14);
+    --red: #d9765a;
+    --green: #7fae6f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none;}
+  button{
+    -webkit-appearance: none;
+    appearance: none;
+    margin:0;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: var(--chalk-bg);
+    color:var(--chalk);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    overflow:hidden;
+  }
+  #app{
+    display:flex; flex-direction:column;
+    height:100vh;
+    height:100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ---- Betrag oben, fest ---- */
+  #totalBar{
+    flex-shrink:0;
+    padding: 10px 16px 12px;
+    text-align:center;
+    background: linear-gradient(180deg, var(--chalk-bg-2), var(--chalk-bg));
+    border-bottom: 1px dashed var(--line);
+  }
+  #totalBar .label{
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color: var(--chalk-dim);
+    margin-bottom:2px;
+  }
+  #totalValue{
+    font-weight:700;
+    font-size:38px;
+    line-height:1.1;
+    color: var(--amber);
+    font-variant-numeric: tabular-nums;
+  }
+  #totalValue.neg{ color: var(--red); }
+
+  #changeRow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-top:8px;
+    font-size:12px;
+    color: var(--chalk-dim);
+  }
+  #changeRow input{
+    width:66px;
+    background: rgba(236,230,214,0.08);
+    border:1px solid var(--line);
+    border-radius:6px;
+    color: var(--chalk);
+    font-size:13px;
+    padding:4px 6px;
+    text-align:right;
+    font-family: inherit;
+  }
+  #changeValue{
+    font-weight:700;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+  }
+  #changeValue.neg{ color: var(--red); }
+  #changeRow.empty #changeValue{ visibility:hidden; }
+
+  #spotRow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    margin-top:9px;
+  }
+  .spotLabel{
+    font-size:10.5px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color: var(--chalk-dim);
+  }
+  .spotButtons{
+    display:flex;
+    gap:5px;
+  }
+  .spotBtn{
+    width:26px; height:26px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background: rgba(236,230,214,0.06);
+    color: var(--chalk-dim);
+    font-size:12px;
+    font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    padding:0;
+    font-family: inherit;
+  }
+  .spotBtn.active{
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #241a0c;
+  }
+  .spotBtn:active{ transform: scale(0.9); }
+
+  /* ---- Raster ---- */
+  #list{
+    flex:1;
+    min-height:0;
+    min-width:0;
+    padding: 7px 8px 5px;
+    display:grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap:6px;
+    align-content:start;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .row{
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    background: var(--chalk-bg-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 8px 6px;
+    gap:3px;
+    min-width:0;
+  }
+  .row.pfand{
+    grid-column: 1 / -1;
+    border-color: rgba(127,179,201,0.35);
+    background: linear-gradient(180deg, rgba(127,179,201,0.08), var(--chalk-bg-2));
+  }
+
+  .info{
+    display:flex; align-items:baseline; justify-content:space-between; gap:6px;
+    min-width:0;
+  }
+  .row.pfand .info{ flex-direction:column; align-items:flex-start; gap:0; }
+
+  .name{
+    font-size:13px;
+    font-weight:600;
+    color: var(--chalk);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
+    flex-shrink:1;
+  }
+  .price{
+    font-size:11px;
+    color: var(--amber);
+    font-weight:500;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:0;
+    min-width:0;
+    flex-shrink:0;
+  }
+  .price .priceMain{
+    display:flex;
+    align-items:center;
+    gap:3px;
+  }
+  .price input.priceInput{
+    width:38px;
+    background: rgba(236,230,214,0.08);
+    border:1px solid var(--line);
+    border-radius:5px;
+    color: var(--amber);
+    font-size:11px;
+    padding:2px 3px;
+    text-align:right;
+    font-family: inherit;
+  }
+  .price input.priceInput:disabled{
+    width:auto;
+    max-width:40px;
+    background: transparent;
+    border: none;
+    padding:0;
+    color: var(--amber);
+    -webkit-text-fill-color: var(--amber);
+    opacity:1;
+    -moz-appearance: textfield;
+  }
+  .price input.priceInput:disabled::-webkit-inner-spin-button,
+  .price input.priceInput:disabled::-webkit-outer-spin-button{
+    -webkit-appearance: none;
+    margin:0;
+  }
+  .priceWithPfand{
+    font-size:9px;
+    color: var(--chalk-dim);
+    margin-left:2px;
+    white-space:nowrap;
+    max-width:100%;
+  }
+  #list.price-edit-mode .price input.priceInput{
+    background: rgba(227,160,74,0.14);
+    border-color: rgba(227,160,74,0.5);
+  }
+  .row.pfand .price{ color: var(--blue-chalk); display:flex; flex-direction:row; align-items:center; gap:3px; }
+  .row.pfand .price input{
+    width:44px;
+    background: rgba(236,230,214,0.08);
+    border:1px solid var(--line);
+    border-radius:5px;
+    color: var(--blue-chalk);
+    font-size:12px;
+    padding:2px 3px;
+    text-align:right;
+    font-family: inherit;
+  }
+  .row.pfand .price input:disabled{
+    width:auto;
+    max-width:44px;
+    background: transparent;
+    border: none;
+    padding:0;
+    color: var(--blue-chalk);
+    -webkit-text-fill-color: var(--blue-chalk);
+    opacity:1;
+  }
+  .row.pfand .price input:disabled::-webkit-inner-spin-button,
+  .row.pfand .price input:disabled::-webkit-outer-spin-button{
+    -webkit-appearance: none;
+    margin:0;
+  }
+  #list.price-edit-mode .row.pfand .price input{
+    background: rgba(127,179,201,0.14);
+    border-color: rgba(127,179,201,0.5);
+  }
+
+  .counter{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+
+  .stepper{
+    width:30px; height:30px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background: rgba(236,230,214,0.06);
+    color: var(--chalk);
+    font-size:17px;
+    font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    line-height:1;
+    padding:0;
+  }
+  .stepper:active{
+    background: rgba(236,230,214,0.22);
+    transform: scale(0.92);
+  }
+  .stepper.minus{ color: var(--red); }
+  .stepper.plus{ color: var(--green); }
+  .row.pfand .stepper.minus{ color: var(--blue-chalk); }
+  .row.pfand .stepper.plus{ color: var(--blue-chalk); }
+  .row.pfand .counter{ gap:8px; justify-content:space-between; }
+  .pfandAutoLine{
+    font-size:10px;
+    color: var(--chalk-dim);
+    text-align:center;
+  }
+  .pfandAutoLine b{ color: var(--blue-chalk); font-weight:700; }
+  #pfandReturnQty{
+    font-size:13px;
+    font-weight:700;
+    color: var(--green);
+    white-space:nowrap;
+    min-width:70px;
+    text-align:center;
+  }
+
+  .qty{
+    min-width:18px;
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+    font-variant-numeric: tabular-nums;
+  }
+  .qty.zero{ color: var(--chalk-dim); }
+
+  .sold{
+    font-size:10px;
+    color: var(--chalk-dim);
+    font-variant-numeric: tabular-nums;
+    white-space:nowrap;
+    text-align:right;
+  }
+  .sold b{ color: var(--green); font-weight:700; }
+  .row.pfand .sold{ margin-left:4px; }
+
+  .row.row-hidden{
+    padding: 6px 8px;
+    opacity: 0.45;
+  }
+  .row.row-hidden .counter,
+  .row.row-hidden .sold{
+    display:none;
+  }
+  .row.row-hidden .name::after{
+    content: " (ausgeblendet)";
+    font-size:9px;
+    font-weight:400;
+    color: var(--chalk-dim);
+    text-transform:none;
+  }
+  .name{ cursor:pointer; }
+
+  /* ---- Reihenfolge-Modus ---- */
+  .reorderControls{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+  }
+  #list.reorder-mode .counter,
+  #list.reorder-mode .sold{
+    display:none;
+  }
+  #list.reorder-mode .reorderControls{
+    display:flex;
+  }
+  #list.reorder-mode .row{
+    border-color: rgba(227,160,74,0.5);
+  }
+  #list.reorder-mode .name{
+    cursor:default;
+  }
+  .arrowBtn{
+    width:34px; height:28px;
+    border-radius:7px;
+    border:1px solid var(--line);
+    background: rgba(236,230,214,0.06);
+    color: var(--amber);
+    font-size:14px;
+    font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  .arrowBtn:active{ background: rgba(236,230,214,0.22); transform: scale(0.92); }
+  .arrowBtn:disabled{ opacity:0.25; }
+
+  /* ---- Fuß ---- */
+  footer{
+    flex-shrink:0;
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  }
+  .footerMain{
+    display:grid;
+    grid-template-columns: 1fr auto auto;
+    gap:6px;
+  }
+  .btn{
+    display:block;
+    padding: 11px 6px;
+    border-radius:9px;
+    text-align:center;
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:0.2px;
+    text-transform:uppercase;
+    border:1px solid rgba(217,118,90,0.35);
+    background: rgba(236,230,214,0.05);
+    color: var(--red);
+    line-height:1.25;
+  }
+  .btn.primary-wide{
+    font-size:11.5px;
+    padding: 13px 6px;
+    line-height:1.2;
+  }
+  .btn.gearBtn, .btn.ordersBtn{
+    color: var(--chalk-dim);
+    border-color: var(--line);
+    padding: 11px 14px;
+    font-size:16px;
+    position:relative;
+  }
+  .ordersBadge{
+    position:absolute;
+    top:-6px; right:-6px;
+    background: var(--red);
+    color: var(--chalk);
+    font-size:10px;
+    font-weight:700;
+    min-width:16px;
+    height:16px;
+    border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    padding:0 3px;
+  }
+    color: var(--chalk-dim);
+    border-color: var(--line);
+    padding: 11px 16px;
+    font-size:18px;
+  }
+  .btn:active{ background: rgba(236,230,214,0.16); transform:scale(0.98); }
+  .btn.secondary{
+    border-color: var(--line);
+    color: var(--chalk-dim);
+  }
+
+  /* ---- Einstellungen-Overlay ---- */
+  #settingsOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.6);
+    display:none;
+    align-items:flex-end;
+    z-index:60;
+  }
+  #settingsOverlay.open{ display:flex; }
+  .settingsSheet{
+    width:100%;
+    background: var(--chalk-bg-2);
+    border-top: 1px solid var(--line);
+    border-radius: 16px 16px 0 0;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .settingsHeader{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .settingsTitle{
+    font-size:16px;
+    font-weight:700;
+    color: var(--chalk);
+  }
+  .settingsClose{
+    width:30px; height:30px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background: rgba(236,230,214,0.06);
+    color: var(--chalk-dim);
+    font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  .umsatzBox{
+    background: rgba(227,160,74,0.08);
+    border: 1px solid rgba(227,160,74,0.3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align:center;
+    margin-bottom:12px;
+  }
+  .umsatzLabel{
+    font-size:10.5px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color: var(--chalk-dim);
+    margin-bottom:3px;
+  }
+  .umsatzValue{
+    font-size:24px;
+    font-weight:700;
+    color: var(--amber);
+    font-variant-numeric: tabular-nums;
+  }
+  .settingsList{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:8px;
+  }
+  .settingsItem{
+    padding: 13px 8px;
+  }
+
+  #ordersOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.6);
+    display:none;
+    align-items:flex-end;
+    z-index:60;
+  }
+  #ordersOverlay.open{ display:flex; }
+  .ordersList{
+    max-height: 60vh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling: touch;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .ordersEmpty{
+    text-align:center;
+    color: var(--chalk-dim);
+    font-size:13px;
+    padding: 20px 0;
+  }
+  .orderCard{
+    background: var(--chalk-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .orderCardHead{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:5px;
+  }
+  .orderSpot{
+    background: var(--amber);
+    color: #241a0c;
+    font-weight:700;
+    font-size:12px;
+    border-radius:6px;
+    padding:2px 8px;
+  }
+  .orderTime{
+    font-size:11px;
+    color: var(--chalk-dim);
+  }
+  .orderItems{
+    font-size:13px;
+    color: var(--chalk);
+    line-height:1.4;
+    margin-bottom:6px;
+  }
+  .orderFoot{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .orderTotal{
+    font-weight:700;
+    color: var(--amber);
+    font-size:14px;
+  }
+  .orderDoneBtn{
+    padding: 6px 14px;
+    border-radius:7px;
+    border:1px solid rgba(127,174,111,0.4);
+    background: rgba(127,174,111,0.12);
+    color: var(--green);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .orderDoneBtn:active{ transform:scale(0.95); }
+
+  #confirmOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.6);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding: 24px;
+  }
+  #confirmOverlay.open{ display:flex; }
+  .confirmBox{
+    background: var(--chalk-bg-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 18px;
+    max-width: 320px;
+    width:100%;
+    text-align:center;
+  }
+  .confirmText{
+    font-size:15px;
+    line-height:1.4;
+    color: var(--chalk);
+    margin-bottom:16px;
+  }
+  .confirmActions{
+    display:flex;
+    gap:10px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="totalBar">
+    <div class="label">Gesamt</div>
+    <div id="totalValue">0,00 €</div>
+    <div id="changeRow" class="empty">
+      <span>Erhalten:</span>
+      <input type="number" id="receivedInput" step="0.50" min="0" inputmode="decimal" placeholder="0,00">
+      <span>€ → Rückgeld: <span id="changeValue">0,00 €</span></span>
+    </div>
+    <div id="spotRow">
+      <span class="spotLabel">Spot:</span>
+      <div class="spotButtons" id="spotButtons">
+        <button type="button" class="spotBtn" data-spot="1">1</button>
+        <button type="button" class="spotBtn" data-spot="2">2</button>
+        <button type="button" class="spotBtn" data-spot="3">3</button>
+        <button type="button" class="spotBtn" data-spot="4">4</button>
+        <button type="button" class="spotBtn" data-spot="5">5</button>
+        <button type="button" class="spotBtn" data-spot="6">6</button>
+        <button type="button" class="spotBtn" data-spot="7">7</button>
+        <button type="button" class="spotBtn" data-spot="8">8</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="list">
+
+    <div class="row" data-id="bier">
+      <div class="info">
+        <div class="name">Bier</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="bier" value="3.00" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="bier"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="misch">
+      <div class="info">
+        <div class="name">Mischungen</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="misch" value="4.00" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="misch"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="wein">
+      <div class="info">
+        <div class="name">Wein/Prosecco</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="wein" value="4.00" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="wein"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="aperol">
+      <div class="info">
+        <div class="name">Aperol/Lillet</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="aperol" value="5.00" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="aperol"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="kurze">
+      <div class="info">
+        <div class="name">Kurze</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="kurze" value="2.00" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="kurze"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="soft">
+      <div class="info">
+        <div class="name">Softgetränke</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="soft" value="1.50" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="soft"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="slush">
+      <div class="info">
+        <div class="name">Slush Ice</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="slush" value="2.00" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="slush"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row" data-id="kaffee">
+      <div class="info">
+        <div class="name">Kaffee</div>
+        <div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="kaffee" value="1.50" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="kaffee"></span></div>
+      </div>
+      <div class="counter">
+        <button type="button" class="stepper minus" data-action="minus">−</button>
+        <div class="qty zero" data-role="qty">0</div>
+        <button type="button" class="stepper plus" data-action="plus">+</button>
+      </div>
+      <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
+      <div class="sold" data-role="sold">verkauft: <b>0</b></div>
+    </div>
+
+    <div class="row pfand" data-id="pfand">
+      <div class="info">
+        <div class="name">Pfand</div>
+        <div class="price">+ <input type="number" id="pfandPreis" disabled value="2.00" step="0.10" min="0" inputmode="decimal"> € / Stück</div>
+      </div>
+      <div class="pfandAutoLine">automatisch aus Getränken: <b id="pfandAutoQty">0</b> Stück</div>
+      <div class="counter">
+        <button type="button" class="stepper minus" id="pfandReturnMinus">−</button>
+        <div class="qty" id="pfandReturnQty">Rückgabe: 0</div>
+        <button type="button" class="stepper plus" id="pfandReturnPlus">+</button>
+      </div>
+      <div class="sold" data-role="sold">gesamt: <b id="pfandSoldTotal">0</b></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="footerMain">
+      <button type="button" class="btn primary-wide" id="resetBtn">Bestellung abschicken</button>
+      <button type="button" class="btn secondary ordersBtn" id="ordersBtn" aria-label="Bestellungen">📋<span id="ordersBadge" class="ordersBadge" style="display:none">0</span></button>
+      <button type="button" class="btn secondary gearBtn" id="settingsBtn" aria-label="Einstellungen">⚙</button>
+    </div>
+  </footer>
+
+</div>
+
+<div id="ordersOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle">Offene Bestellungen</div>
+      <button type="button" class="settingsClose" id="ordersCloseBtn">✕</button>
+    </div>
+    <div class="ordersList" id="ordersList">
+      <div class="ordersEmpty" id="ordersEmpty">Keine offenen Bestellungen</div>
+    </div>
+  </div>
+</div>
+
+<div id="settingsOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle">Einstellungen</div>
+      <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
+    </div>
+    <div class="umsatzBox">
+      <div class="umsatzLabel">Umsatz (alle Getränke, ohne Pfand)</div>
+      <div class="umsatzValue" id="umsatzValue">0,00 €</div>
+    </div>
+    <div class="settingsList">
+      <button type="button" class="btn secondary settingsItem" id="resetCounterBtn">Zähler zurücksetzen</button>
+      <button type="button" class="btn secondary settingsItem" id="showAllBtn">Alle einblenden</button>
+      <button type="button" class="btn secondary settingsItem" id="reorderBtn">Reihenfolge ändern</button>
+      <button type="button" class="btn secondary settingsItem" id="priceEditBtn">Preise ändern</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmOverlay">
+  <div class="confirmBox">
+    <div class="confirmText">Wirklich alle Zähler<br>(verkaufte Menge) zurücksetzen?</div>
+    <div class="confirmActions">
+      <button type="button" class="btn secondary" id="confirmCancel">Abbrechen</button>
+      <button type="button" class="btn" id="confirmOk">Zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, push, remove, onValue }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCi2tJ0RSBLFwmJWQzvCQvEzm3eTmH6Xm0",
+    authDomain: "verkaufen-9b895.firebaseapp.com",
+    databaseURL: "https://verkaufen-9b895-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "verkaufen-9b895",
+    storageBucket: "verkaufen-9b895.firebasestorage.app",
+    messagingSenderId: "604426578907",
+    appId: "1:604426578907:web:20ef95e71f0672fe0055fe"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getDatabase(fbApp);
+  const ordersRef = ref(db, 'orders');
+
+  var PRICE_IDS = ['bier','misch','wein','aperol','kurze','soft','slush','kaffee'];
+  var IDS = ['bier','misch','wein','aperol','kurze','soft','slush','kaffee'];
+  var NAMES = {
+    bier: 'Bier', misch: 'Mischungen', wein: 'Wein/Prosecco', aperol: 'Aperol/Lillet',
+    kurze: 'Kurze', soft: 'Softgetränke', slush: 'Slush Ice', kaffee: 'Kaffee'
+  };
+
+  // aktueller Bon (wird bei "Bon zurücksetzen" auf 0 gesetzt)
+  var counts = { bier:0, misch:0, wein:0, aperol:0, kurze:0, soft:0, slush:0, kaffee:0 };
+  // Gesamtzähler seit Veranstaltungsbeginn (bleibt erhalten, bis "Zähler zurücksetzen" gedrückt wird)
+  var totals = { bier:0, misch:0, wein:0, aperol:0, kurze:0, soft:0, slush:0, kaffee:0 };
+  // Live-Kopie der Bestellungen aus Firebase (von allen Geräten aktuell gehalten)
+  var orderQueue = [];
+  var selectedSpot = 1;
+
+  function fmt(n){
+    return n.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function getPrice(id){
+    var input = document.querySelector('.priceInput[data-price-id="' + id + '"]');
+    var v = parseFloat(input.value.replace(',', '.'));
+    return isNaN(v) ? 0 : v;
+  }
+
+  function getPfandPreis(){
+    var v = parseFloat(document.getElementById('pfandPreis').value.replace(',', '.'));
+    return isNaN(v) ? 0 : v;
+  }
+
+  function updateAllPriceWithPfand(){
+    var pfandPreis = getPfandPreis();
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      var id = PRICE_IDS[i];
+      var span = document.querySelector('.priceWithPfand[data-price-id="' + id + '"]');
+      var withPfand = getPrice(id) + pfandPreis;
+      span.textContent = '(' + fmt(withPfand) + ' € inkl. Pfand)';
+    }
+  }
+
+  function updateRow(id){
+    var row = document.querySelector('.row[data-id="' + id + '"]');
+    var qtyEl = row.querySelector('[data-role="qty"]');
+    var qty = counts[id];
+    qtyEl.textContent = qty;
+    qtyEl.classList.toggle('zero', qty === 0);
+  }
+
+  function updateSold(id){
+    var row = document.querySelector('.row[data-id="' + id + '"]');
+    var soldEl = row.querySelector('[data-role="sold"] b');
+    soldEl.textContent = totals[id];
+  }
+
+  var currentTotal = 0;
+  var pfandReturns = 0;
+
+  function updateTotal(){
+    var sum = 0;
+    var itemCount = 0;
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      var id = PRICE_IDS[i];
+      sum += counts[id] * getPrice(id);
+      itemCount += counts[id];
+    }
+    var pfandQty = itemCount - pfandReturns;
+    sum += pfandQty * getPfandPreis();
+    currentTotal = sum;
+    var el = document.getElementById('totalValue');
+    el.textContent = fmt(sum) + ' €';
+    el.classList.toggle('neg', sum < 0);
+    document.getElementById('pfandAutoQty').textContent = itemCount;
+    updateChange();
+  }
+
+  function updatePfandReturnDisplay(){
+    var el = document.getElementById('pfandReturnQty');
+    el.textContent = 'Rückgabe: ' + pfandReturns;
+  }
+
+  function updateChange(){
+    var receivedInput = document.getElementById('receivedInput');
+    var changeRow = document.getElementById('changeRow');
+    var changeEl = document.getElementById('changeValue');
+    var raw = receivedInput.value;
+    if(raw === ''){
+      changeRow.classList.add('empty');
+      return;
+    }
+    changeRow.classList.remove('empty');
+    var received = parseFloat(raw.replace(',', '.'));
+    if(isNaN(received)) received = 0;
+    var change = received - currentTotal;
+    changeEl.textContent = fmt(change) + ' €';
+    changeEl.classList.toggle('neg', change < 0);
+  }
+
+  function handleStep(id, action){
+    if(action === 'plus'){
+      counts[id]++;
+      totals[id]++;
+      updateSold(id);
+    }
+    if(action === 'minus'){
+      if(counts[id] > 0){
+        counts[id]--;
+        totals[id] = Math.max(0, totals[id] - 1);
+        updateSold(id);
+      }
+    }
+    updateRow(id);
+    updateTotal();
+    updatePfandSoldTotal();
+    updateUmsatz();
+  }
+
+  function updatePfandSoldTotal(){
+    var sum = 0;
+    for(var i = 0; i < IDS.length; i++){
+      sum += totals[IDS[i]];
+    }
+    document.getElementById('pfandSoldTotal').textContent = sum;
+  }
+
+  function updateUmsatz(){
+    var umsatz = 0;
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      var id = PRICE_IDS[i];
+      umsatz += totals[id] * getPrice(id);
+    }
+    document.getElementById('umsatzValue').textContent = fmt(umsatz) + ' €';
+  }
+
+  var allSteppers = document.querySelectorAll('.row:not(.pfand) .stepper');
+  for(var i = 0; i < allSteppers.length; i++){
+    (function(btn){
+      var row = btn.closest('.row');
+      var id = row.getAttribute('data-id');
+      var action = btn.getAttribute('data-action');
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        handleStep(id, action);
+      });
+    })(allSteppers[i]);
+  }
+
+  document.getElementById('pfandPreis').addEventListener('input', function(){
+    updateTotal();
+    updateAllPriceWithPfand();
+  });
+  document.getElementById('pfandPreis').addEventListener('click', function(e){
+    e.stopPropagation();
+  });
+
+  var priceInputs = document.querySelectorAll('.priceInput');
+  for(var p = 0; p < priceInputs.length; p++){
+    priceInputs[p].addEventListener('input', function(){
+      updateTotal();
+      updateAllPriceWithPfand();
+      updateUmsatz();
+    });
+    priceInputs[p].addEventListener('click', function(e){
+      e.stopPropagation();
+    });
+  }
+
+  updateAllPriceWithPfand();
+  updateUmsatz();
+
+  // Wechselgeld: Eingabe live berechnen
+  document.getElementById('receivedInput').addEventListener('input', function(){
+    updateChange();
+  });
+  document.getElementById('receivedInput').addEventListener('click', function(e){
+    e.stopPropagation();
+  });
+
+  // Einstellungen-Overlay öffnen/schließen
+  var settingsOverlay = document.getElementById('settingsOverlay');
+  var settingsBtn = document.getElementById('settingsBtn');
+  var settingsCloseBtn = document.getElementById('settingsCloseBtn');
+
+  settingsBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    updateUmsatz();
+    settingsOverlay.classList.add('open');
+  });
+  settingsCloseBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    settingsOverlay.classList.remove('open');
+  });
+  settingsOverlay.addEventListener('click', function(e){
+    if(e.target === settingsOverlay) settingsOverlay.classList.remove('open');
+  });
+
+  // Spot-Auswahl (1-8)
+  var spotBtns = document.querySelectorAll('.spotBtn');
+  function setSelectedSpot(spot){
+    selectedSpot = spot;
+    for(var i = 0; i < spotBtns.length; i++){
+      spotBtns[i].classList.toggle('active', parseInt(spotBtns[i].getAttribute('data-spot'), 10) === spot);
+    }
+  }
+  for(var s = 0; s < spotBtns.length; s++){
+    spotBtns[s].addEventListener('click', function(e){
+      e.preventDefault();
+      setSelectedSpot(parseInt(this.getAttribute('data-spot'), 10));
+    });
+  }
+  setSelectedSpot(1);
+
+  // Bestellungen-Liste rendern (älteste oben) — orderQueue wird live von Firebase befüllt
+  function formatTime(ms){
+    var d = new Date(ms);
+    var hh = d.getHours().toString().padStart(2, '0');
+    var mm = d.getMinutes().toString().padStart(2, '0');
+    return hh + ':' + mm;
+  }
+
+  function renderOrders(){
+    var listEl2 = document.getElementById('ordersList');
+    var badge = document.getElementById('ordersBadge');
+
+    if(orderQueue.length === 0){
+      listEl2.innerHTML = '<div class="ordersEmpty" id="ordersEmpty">Keine offenen Bestellungen</div>';
+      badge.style.display = 'none';
+    } else {
+      badge.style.display = 'flex';
+      badge.textContent = orderQueue.length;
+
+      var html = '';
+      for(var i = 0; i < orderQueue.length; i++){
+        var order = orderQueue[i];
+        html +=
+          '<div class="orderCard">' +
+            '<div class="orderCardHead">' +
+              '<span class="orderSpot">Spot ' + order.spot + '</span>' +
+              '<span class="orderTime">' + formatTime(order.time) + ' Uhr</span>' +
+            '</div>' +
+            '<div class="orderItems">' + order.itemsText + '</div>' +
+            '<div class="orderFoot">' +
+              '<span class="orderTotal">' + fmt(order.total) + ' €</span>' +
+              '<button type="button" class="orderDoneBtn" data-key="' + order.key + '">Fertig</button>' +
+            '</div>' +
+          '</div>';
+      }
+      listEl2.innerHTML = html;
+
+      var doneBtns = listEl2.querySelectorAll('.orderDoneBtn');
+      for(var d = 0; d < doneBtns.length; d++){
+        doneBtns[d].addEventListener('click', function(e){
+          e.preventDefault();
+          var key = this.getAttribute('data-key');
+          remove(ref(db, 'orders/' + key));
+        });
+      }
+    }
+  }
+
+  // Live-Abo: reagiert automatisch, sobald sich irgendwo (auch auf anderen Geräten) etwas ändert
+  onValue(ordersRef, function(snapshot){
+    var data = snapshot.val() || {};
+    var list = [];
+    for(var key in data){
+      var o = data[key];
+      o.key = key;
+      list.push(o);
+    }
+    list.sort(function(a, b){ return a.time - b.time; });
+    orderQueue = list;
+    renderOrders();
+  });
+
+  var ordersOverlay = document.getElementById('ordersOverlay');
+  var ordersBtn = document.getElementById('ordersBtn');
+  var ordersCloseBtn = document.getElementById('ordersCloseBtn');
+
+  ordersBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    ordersOverlay.classList.add('open');
+  });
+  ordersCloseBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    ordersOverlay.classList.remove('open');
+  });
+  ordersOverlay.addEventListener('click', function(e){
+    if(e.target === ordersOverlay) ordersOverlay.classList.remove('open');
+  });
+
+  // Pfandrückgabe: + zählt zurückgegebene Becher (wird von der Summe abgezogen), - korrigiert Fehltipps
+  document.getElementById('pfandReturnPlus').addEventListener('click', function(e){
+    e.preventDefault();
+    pfandReturns++;
+    updatePfandReturnDisplay();
+    updateTotal();
+  });
+  document.getElementById('pfandReturnMinus').addEventListener('click', function(e){
+    e.preventDefault();
+    pfandReturns = Math.max(0, pfandReturns - 1);
+    updatePfandReturnDisplay();
+    updateTotal();
+  });
+
+  // "Bestellung abschicken": aktuelle Bestellung nach Firebase hochladen (falls nicht leer), dann Bon zurücksetzen
+  document.getElementById('resetBtn').addEventListener('click', function(e){
+    e.preventDefault();
+
+    var itemsList = [];
+    var hasItems = false;
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      var id = PRICE_IDS[i];
+      if(counts[id] > 0){
+        hasItems = true;
+        itemsList.push(counts[id] + '× ' + NAMES[id]);
+      }
+    }
+
+    if(hasItems){
+      push(ordersRef, {
+        spot: selectedSpot,
+        itemsText: itemsList.join(', '),
+        total: currentTotal,
+        time: Date.now()
+      });
+    }
+
+    for(var j = 0; j < IDS.length; j++){
+      counts[IDS[j]] = 0;
+      updateRow(IDS[j]);
+    }
+    pfandReturns = 0;
+    updatePfandReturnDisplay();
+    document.getElementById('receivedInput').value = '';
+    updateTotal();
+  });
+
+  // Zähler zurücksetzen: setzt die Gesamtzähler (verkaufte Menge) zurück, mit eigenem Bestätigungsfenster
+  var confirmOverlay = document.getElementById('confirmOverlay');
+
+  document.getElementById('resetCounterBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    settingsOverlay.classList.remove('open');
+    confirmOverlay.classList.add('open');
+  });
+
+  document.getElementById('confirmCancel').addEventListener('click', function(e){
+    e.preventDefault();
+    confirmOverlay.classList.remove('open');
+  });
+
+  document.getElementById('confirmOk').addEventListener('click', function(e){
+    e.preventDefault();
+    for(var i = 0; i < IDS.length; i++){
+      totals[IDS[i]] = 0;
+      updateSold(IDS[i]);
+    }
+    updatePfandSoldTotal();
+    updateUmsatz();
+    confirmOverlay.classList.remove('open');
+  });
+
+  // Getränk per Tap auf den Namen aus-/einblenden
+  var nameEls = document.querySelectorAll('.row:not(.pfand) .name');
+  for(var n = 0; n < nameEls.length; n++){
+    nameEls[n].addEventListener('click', function(e){
+      var row = e.target.closest('.row');
+      row.classList.toggle('row-hidden');
+    });
+  }
+
+  document.getElementById('showAllBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    var rows = document.querySelectorAll('.row.row-hidden');
+    for(var r = 0; r < rows.length; r++){
+      rows[r].classList.remove('row-hidden');
+    }
+    settingsOverlay.classList.remove('open');
+  });
+
+  // Reihenfolge ändern
+  var listEl = document.getElementById('list');
+  var reorderBtn = document.getElementById('reorderBtn');
+
+  function updateArrowStates(){
+    var rows = listEl.querySelectorAll('.row:not(.pfand)');
+    for(var i = 0; i < rows.length; i++){
+      var up = rows[i].querySelector('.arrowBtn[data-move="up"]');
+      var down = rows[i].querySelector('.arrowBtn[data-move="down"]');
+      up.disabled = (i === 0);
+      down.disabled = (i === rows.length - 1);
+    }
+  }
+
+  reorderBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    var active = listEl.classList.toggle('reorder-mode');
+    reorderBtn.textContent = active ? 'Fertig' : 'Reihenfolge ändern';
+    if(active){
+      updateArrowStates();
+      settingsOverlay.classList.remove('open');
+    }
+  });
+
+  var moveButtons = document.querySelectorAll('.arrowBtn');
+  for(var m = 0; m < moveButtons.length; m++){
+    moveButtons[m].addEventListener('click', function(e){
+      e.preventDefault();
+      var row = e.target.closest('.row');
+      var dir = e.target.getAttribute('data-move');
+      if(dir === 'up'){
+        var prev = row.previousElementSibling;
+        if(prev && !prev.classList.contains('pfand')){
+          listEl.insertBefore(row, prev);
+        }
+      } else {
+        var next = row.nextElementSibling;
+        if(next && !next.classList.contains('pfand')){
+          listEl.insertBefore(next, row);
+        }
+      }
+      updateArrowStates();
+    });
+  }
+
+  // Preise ändern
+  var priceEditBtn = document.getElementById('priceEditBtn');
+  var allPriceInputs = document.querySelectorAll('.priceInput, #pfandPreis');
+
+  priceEditBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    var active = listEl.classList.toggle('price-edit-mode');
+    priceEditBtn.textContent = active ? 'Fertig' : 'Preise ändern';
+    for(var i = 0; i < allPriceInputs.length; i++){
+      allPriceInputs[i].disabled = !active;
+    }
+    if(active){
+      settingsOverlay.classList.remove('open');
+    }
+  });
+
+  confirmOverlay.addEventListener('click', function(e){
+    if(e.target === confirmOverlay) confirmOverlay.classList.remove('open');
+  });
+
+  // Bildschirm bleibt an, solange die App aktiv/sichtbar ist
+  var wakeLock = null;
+
+  function requestWakeLock(){
+    if('wakeLock' in navigator){
+      navigator.wakeLock.request('screen').then(function(lock){
+        wakeLock = lock;
+      }).catch(function(){
+        // Wake Lock nicht verfügbar (z. B. Browser ohne Unterstützung) – App funktioniert trotzdem normal weiter
+      });
+    }
+  }
+
+  requestWakeLock();
+
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){
+      requestWakeLock();
+    }
+  });
+</script>
+</body>
+</html>
