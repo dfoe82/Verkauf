@@ -313,6 +313,21 @@
   }
   .qty.zero{ color: var(--chalk-dim); }
 
+  .pickVariantsBtn{
+    width:100%;
+    padding: 9px 6px;
+    border-radius:8px;
+    border:1px solid rgba(227,160,74,0.4);
+    background: rgba(227,160,74,0.10);
+    color: var(--amber);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .pickVariantsBtn:active{ background: rgba(227,160,74,0.22); transform:scale(0.97); }
+  .row.has-variants .counter{ display:none; }
+  .row.has-variants .pickVariantsBtn{ display:block !important; }
+
   .sold{
     font-size:10px;
     color: var(--chalk-dim);
@@ -383,7 +398,17 @@
     display:grid;
     grid-template-columns: 1fr auto auto;
     gap:6px;
+    margin-bottom:6px;
   }
+  .btn.cancelBtn{
+    width:100%;
+    color: var(--chalk-dim);
+    border-color: var(--line);
+    background: transparent;
+    font-size:11px;
+    padding:8px 6px;
+  }
+  .btn.cancelBtn:active{ background: rgba(217,118,90,0.12); color: var(--red); }
   .btn{
     display:block;
     padding: 11px 6px;
@@ -501,6 +526,135 @@
     padding: 13px 8px;
   }
 
+  #variantsOverlay, #variantsEditOverlay, #pickVariantOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.6);
+    display:none;
+    align-items:flex-end;
+    z-index:65;
+  }
+  #variantsOverlay.open, #variantsEditOverlay.open, #pickVariantOverlay.open{ display:flex; }
+
+  .variantsHint{
+    font-size:12px;
+    color: var(--chalk-dim);
+    line-height:1.4;
+    margin-bottom:12px;
+  }
+  .variantsDrinkList{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:55vh;
+    overflow-y:auto;
+  }
+  .variantsDrinkRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background: var(--chalk-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .variantsDrinkName{
+    font-size:14px;
+    font-weight:600;
+    color: var(--chalk);
+  }
+  .variantsDrinkCount{
+    font-size:11px;
+    color: var(--chalk-dim);
+    margin-top:2px;
+  }
+  .variantsDrinkArrow{
+    color: var(--chalk-dim);
+    font-size:16px;
+  }
+
+  .variantsEditList{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:45vh;
+    overflow-y:auto;
+    margin-bottom:14px;
+  }
+  .variantEditRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background: var(--chalk-bg);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 12px;
+  }
+  .variantEditName{
+    font-size:14px;
+    color: var(--chalk);
+  }
+  .variantDeleteBtn{
+    width:28px; height:28px;
+    border-radius:7px;
+    border:1px solid rgba(217,118,90,0.4);
+    background: rgba(217,118,90,0.12);
+    color: var(--red);
+    font-size:14px;
+    font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  .variantsAddRow{
+    display:flex;
+    gap:8px;
+  }
+  .variantsAddRow input{
+    flex:1;
+    background: rgba(236,230,214,0.08);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color: var(--chalk);
+    font-size:14px;
+    padding:10px 12px;
+    font-family: inherit;
+  }
+  .variantsAddRow button{
+    width:44px;
+    font-size:20px;
+  }
+
+  .pickVariantList{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:55vh;
+    overflow-y:auto;
+  }
+  .pickVariantRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background: var(--chalk-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px;
+  }
+  .pickVariantName{
+    font-size:15px;
+    color: var(--chalk);
+  }
+  .pickVariantCounter{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .pickVariantQty{
+    min-width:20px;
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+  }
+
   #ordersOverlay{
     position:fixed; inset:0;
     background: rgba(0,0,0,0.6);
@@ -563,6 +717,10 @@
     color: var(--amber);
     font-size:14px;
   }
+  .orderBtnGroup{
+    display:flex;
+    gap:7px;
+  }
   .orderDoneBtn{
     padding: 6px 14px;
     border-radius:7px;
@@ -574,6 +732,17 @@
     text-transform:uppercase;
   }
   .orderDoneBtn:active{ transform:scale(0.95); }
+  .orderCancelBtn{
+    padding: 6px 14px;
+    border-radius:7px;
+    border:1px solid rgba(217,118,90,0.4);
+    background: rgba(217,118,90,0.10);
+    color: var(--red);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .orderCancelBtn:active{ transform:scale(0.95); }
 
   #confirmOverlay{
     position:fixed; inset:0;
@@ -644,6 +813,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -658,6 +828,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -672,6 +843,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -686,6 +858,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -700,6 +873,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -714,6 +888,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -728,6 +903,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -742,6 +918,7 @@
         <div class="qty zero" data-role="qty">0</div>
         <button type="button" class="stepper plus" data-action="plus">+</button>
       </div>
+      <button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>
       <div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>
       <div class="sold" data-role="sold">verkauft: <b>0</b></div>
     </div>
@@ -768,6 +945,7 @@
       <button type="button" class="btn secondary ordersBtn" id="ordersBtn" aria-label="Bestellungen">📋<span id="ordersBadge" class="ordersBadge" style="display:none">0</span></button>
       <button type="button" class="btn secondary gearBtn" id="settingsBtn" aria-label="Einstellungen">⚙</button>
     </div>
+    <button type="button" class="btn cancelBtn" id="cancelOrderBtn">Aktuellen Bon abbrechen</button>
   </footer>
 
 </div>
@@ -799,13 +977,50 @@
       <button type="button" class="btn secondary settingsItem" id="showAllBtn">Alle einblenden</button>
       <button type="button" class="btn secondary settingsItem" id="reorderBtn">Reihenfolge ändern</button>
       <button type="button" class="btn secondary settingsItem" id="priceEditBtn">Preise ändern</button>
+      <button type="button" class="btn secondary settingsItem" id="variantsBtn" style="grid-column: 1 / -1;">Varianten verwalten</button>
     </div>
   </div>
 </div>
 
+<div id="variantsOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle">Varianten verwalten</div>
+      <button type="button" class="settingsClose" id="variantsCloseBtn">✕</button>
+    </div>
+    <div class="variantsHint">Wähle ein Getränk, um Varianten hinzuzufügen (z.B. bei "Mischungen": Wodka-Energy, Jägermeister-Cola). Sobald ein Getränk Varianten hat, öffnet ein Tap darauf die Auswahl statt direkt zu zählen.</div>
+    <div class="variantsDrinkList" id="variantsDrinkList"></div>
+  </div>
+</div>
+
+<div id="variantsEditOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle" id="variantsEditTitle">Varianten</div>
+      <button type="button" class="settingsClose" id="variantsEditCloseBtn">✕</button>
+    </div>
+    <div class="variantsEditList" id="variantsEditList"></div>
+    <div class="variantsAddRow">
+      <input type="text" id="variantNewInput" placeholder="Neue Variante, z.B. Wodka-Energy">
+      <button type="button" class="btn" id="variantAddBtn">+</button>
+    </div>
+  </div>
+</div>
+
+<div id="pickVariantOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle" id="pickVariantTitle">Variante wählen</div>
+      <button type="button" class="settingsClose" id="pickVariantCloseBtn">✕</button>
+    </div>
+    <div class="pickVariantList" id="pickVariantList"></div>
+  </div>
+</div>
+
+
 <div id="confirmOverlay">
   <div class="confirmBox">
-    <div class="confirmText">Wirklich alle Zähler<br>(verkaufte Menge) zurücksetzen?</div>
+    <div class="confirmText" id="confirmText">Wirklich alle Zähler (verkaufte Menge) zurücksetzen?</div>
     <div class="confirmActions">
       <button type="button" class="btn secondary" id="confirmCancel">Abbrechen</button>
       <button type="button" class="btn" id="confirmOk">Zurücksetzen</button>
@@ -846,6 +1061,54 @@
   // Live-Kopie der Bestellungen aus Firebase (von allen Geräten aktuell gehalten)
   var orderQueue = [];
   var selectedSpot = 1;
+
+  // Varianten pro Getränk (z.B. Mischungen: Wodka-Energy, Jägermeister-Cola, ...) — rein lokal gespeichert
+  var variantDefs = {};
+  var localStorageAvailable = false;
+  try {
+    var testKey = '__ls_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    localStorageAvailable = true;
+  } catch(err){ localStorageAvailable = false; }
+
+  if(localStorageAvailable){
+    try {
+      var storedVariants = window.localStorage.getItem('drinkVariants');
+      if(storedVariants){ variantDefs = JSON.parse(storedVariants); }
+    } catch(err){ variantDefs = {}; }
+  }
+  for(var vi = 0; vi < PRICE_IDS.length; vi++){
+    if(!variantDefs[PRICE_IDS[vi]]) variantDefs[PRICE_IDS[vi]] = [];
+  }
+
+  function saveVariantDefs(){
+    if(!localStorageAvailable) return;
+    try { window.localStorage.setItem('drinkVariants', JSON.stringify(variantDefs)); } catch(err){}
+  }
+
+  // Verkaufte Mengen je Variante (aktueller Bon und Gesamtzähler), pro Getränk-ID ein Objekt { Variantenname: Anzahl }
+  var variantCounts = {};
+  var variantTotals = {};
+  for(var vj = 0; vj < PRICE_IDS.length; vj++){
+    variantCounts[PRICE_IDS[vj]] = {};
+    variantTotals[PRICE_IDS[vj]] = {};
+  }
+
+  function hasVariants(id){
+    return variantDefs[id] && variantDefs[id].length > 0;
+  }
+
+  function refreshRowMode(id){
+    var row = document.querySelector('.row[data-id="' + id + '"]');
+    if(!row) return;
+    row.classList.toggle('has-variants', hasVariants(id));
+    var btn = row.querySelector('.pickVariantsBtn');
+    if(btn){
+      var qty = counts[id] || 0;
+      btn.textContent = 'Varianten wählen' + (qty > 0 ? ' (' + qty + ')' : '');
+    }
+  }
 
   function fmt(n){
     return n.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -929,23 +1192,32 @@
     changeEl.classList.toggle('neg', change < 0);
   }
 
-  function handleStep(id, action){
+  function handleStep(id, action, variant){
     if(action === 'plus'){
       counts[id]++;
       totals[id]++;
       updateSold(id);
+      if(variant){
+        variantCounts[id][variant] = (variantCounts[id][variant] || 0) + 1;
+        variantTotals[id][variant] = (variantTotals[id][variant] || 0) + 1;
+      }
     }
     if(action === 'minus'){
       if(counts[id] > 0){
         counts[id]--;
         totals[id] = Math.max(0, totals[id] - 1);
         updateSold(id);
+        if(variant && variantCounts[id][variant] > 0){
+          variantCounts[id][variant]--;
+          variantTotals[id][variant] = Math.max(0, (variantTotals[id][variant] || 0) - 1);
+        }
       }
     }
     updateRow(id);
     updateTotal();
     updatePfandSoldTotal();
     updateUmsatz();
+    refreshRowMode(id);
   }
 
   function updatePfandSoldTotal(){
@@ -976,6 +1248,67 @@
         handleStep(id, action);
       });
     })(allSteppers[i]);
+  }
+
+  // "Varianten wählen"-Buttons verdrahten
+  var pickVariantsBtns = document.querySelectorAll('.pickVariantsBtn');
+  for(var pv = 0; pv < pickVariantsBtns.length; pv++){
+    (function(btn){
+      var row = btn.closest('.row');
+      var id = row.getAttribute('data-id');
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        openPickVariant(id);
+      });
+    })(pickVariantsBtns[pv]);
+  }
+
+  function openPickVariant(id){
+    document.getElementById('pickVariantTitle').textContent = NAMES[id] + ' — Variante wählen';
+    var listEl3 = document.getElementById('pickVariantList');
+    var html = '';
+    var variants = variantDefs[id] || [];
+    for(var i = 0; i < variants.length; i++){
+      var vName = variants[i];
+      var qty = variantCounts[id][vName] || 0;
+      html +=
+        '<div class="pickVariantRow">' +
+          '<span class="pickVariantName">' + vName + '</span>' +
+          '<div class="pickVariantCounter">' +
+            '<button type="button" class="stepper minus" data-variant="' + vName + '" data-action="minus">−</button>' +
+            '<div class="pickVariantQty" data-variant-qty="' + vName + '">' + qty + '</div>' +
+            '<button type="button" class="stepper plus" data-variant="' + vName + '" data-action="plus">+</button>' +
+          '</div>' +
+        '</div>';
+    }
+    listEl3.innerHTML = html;
+
+    var vBtns = listEl3.querySelectorAll('.stepper');
+    for(var b = 0; b < vBtns.length; b++){
+      vBtns[b].addEventListener('click', function(e){
+        e.preventDefault();
+        var vName = this.getAttribute('data-variant');
+        var vAction = this.getAttribute('data-action');
+        handleStep(id, vAction, vName);
+        var qtyEl = listEl3.querySelector('[data-variant-qty="' + vName + '"]');
+        qtyEl.textContent = variantCounts[id][vName] || 0;
+      });
+    }
+
+    document.getElementById('pickVariantOverlay').classList.add('open');
+  }
+
+  document.getElementById('pickVariantCloseBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    document.getElementById('pickVariantOverlay').classList.remove('open');
+  });
+  document.getElementById('pickVariantOverlay').addEventListener('click', function(e){
+    if(e.target === this) this.classList.remove('open');
+  });
+
+  // Alle Zeilen initial auf Varianten-Modus prüfen (falls aus vorheriger Sitzung schon Varianten gespeichert sind)
+  for(var ri = 0; ri < PRICE_IDS.length; ri++){
+    refreshRowMode(PRICE_IDS[ri]);
   }
 
   document.getElementById('pfandPreis').addEventListener('input', function(){
@@ -1074,7 +1407,10 @@
             '<div class="orderItems">' + order.itemsText + '</div>' +
             '<div class="orderFoot">' +
               '<span class="orderTotal">' + fmt(order.total) + ' €</span>' +
-              '<button type="button" class="orderDoneBtn" data-key="' + order.key + '">Fertig</button>' +
+              '<div class="orderBtnGroup">' +
+                '<button type="button" class="orderCancelBtn" data-key="' + order.key + '">Stornieren</button>' +
+                '<button type="button" class="orderDoneBtn" data-key="' + order.key + '">Fertig</button>' +
+              '</div>' +
             '</div>' +
           '</div>';
       }
@@ -1086,6 +1422,17 @@
           e.preventDefault();
           var key = this.getAttribute('data-key');
           remove(ref(db, 'orders/' + key));
+        });
+      }
+
+      var cancelBtns = listEl2.querySelectorAll('.orderCancelBtn');
+      for(var c = 0; c < cancelBtns.length; c++){
+        cancelBtns[c].addEventListener('click', function(e){
+          e.preventDefault();
+          var key = this.getAttribute('data-key');
+          showConfirm('Diese Bestellung wirklich stornieren?', 'Stornieren', function(){
+            remove(ref(db, 'orders/' + key));
+          });
         });
       }
     }
@@ -1145,7 +1492,17 @@
       var id = PRICE_IDS[i];
       if(counts[id] > 0){
         hasItems = true;
-        itemsList.push(counts[id] + '× ' + NAMES[id]);
+        if(hasVariants(id)){
+          var parts = [];
+          for(var vName in variantCounts[id]){
+            if(variantCounts[id][vName] > 0){
+              parts.push(variantCounts[id][vName] + '× ' + vName);
+            }
+          }
+          itemsList.push(NAMES[id] + ' (' + parts.join(', ') + ')');
+        } else {
+          itemsList.push(counts[id] + '× ' + NAMES[id]);
+        }
       }
     }
 
@@ -1161,6 +1518,8 @@
     for(var j = 0; j < IDS.length; j++){
       counts[IDS[j]] = 0;
       updateRow(IDS[j]);
+      variantCounts[IDS[j]] = {};
+      refreshRowMode(IDS[j]);
     }
     pfandReturns = 0;
     updatePfandReturnDisplay();
@@ -1168,29 +1527,68 @@
     updateTotal();
   });
 
-  // Zähler zurücksetzen: setzt die Gesamtzähler (verkaufte Menge) zurück, mit eigenem Bestätigungsfenster
+  // Generisches Bestätigungsfenster (wiederverwendbar für mehrere Aktionen)
   var confirmOverlay = document.getElementById('confirmOverlay');
+  var confirmTextEl = document.getElementById('confirmText');
+  var confirmOkBtn = document.getElementById('confirmOk');
+  var pendingConfirmAction = null;
+
+  function showConfirm(text, okLabel, onConfirm){
+    confirmTextEl.textContent = text;
+    confirmOkBtn.textContent = okLabel;
+    pendingConfirmAction = onConfirm;
+    confirmOverlay.classList.add('open');
+  }
 
   document.getElementById('resetCounterBtn').addEventListener('click', function(e){
     e.preventDefault();
     settingsOverlay.classList.remove('open');
-    confirmOverlay.classList.add('open');
+    showConfirm('Wirklich alle Zähler (verkaufte Menge) zurücksetzen?', 'Zurücksetzen', function(){
+      for(var i = 0; i < IDS.length; i++){
+        totals[IDS[i]] = 0;
+        updateSold(IDS[i]);
+      }
+      updatePfandSoldTotal();
+      updateUmsatz();
+    });
   });
 
   document.getElementById('confirmCancel').addEventListener('click', function(e){
     e.preventDefault();
+    pendingConfirmAction = null;
     confirmOverlay.classList.remove('open');
   });
 
-  document.getElementById('confirmOk').addEventListener('click', function(e){
+  confirmOkBtn.addEventListener('click', function(e){
     e.preventDefault();
-    for(var i = 0; i < IDS.length; i++){
-      totals[IDS[i]] = 0;
-      updateSold(IDS[i]);
+    if(pendingConfirmAction){
+      pendingConfirmAction();
     }
-    updatePfandSoldTotal();
-    updateUmsatz();
+    pendingConfirmAction = null;
     confirmOverlay.classList.remove('open');
+  });
+
+  // Aktuellen Bon abbrechen (mit Bestätigung), ohne ihn abzuschicken
+  document.getElementById('cancelOrderBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    var hasItems = false;
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      if(counts[PRICE_IDS[i]] > 0){ hasItems = true; break; }
+    }
+    if(!hasItems){ return; }
+
+    showConfirm('Aktuellen Bon wirklich verwerfen, ohne ihn abzuschicken?', 'Verwerfen', function(){
+      for(var j = 0; j < IDS.length; j++){
+        counts[IDS[j]] = 0;
+        updateRow(IDS[j]);
+        variantCounts[IDS[j]] = {};
+        refreshRowMode(IDS[j]);
+      }
+      pfandReturns = 0;
+      updatePfandReturnDisplay();
+      document.getElementById('receivedInput').value = '';
+      updateTotal();
+    });
   });
 
   // Getränk per Tap auf den Namen aus-/einblenden
@@ -1272,8 +1670,132 @@
     }
   });
 
+  // Varianten verwalten: Übersichts-Overlay
+  var variantsBtn = document.getElementById('variantsBtn');
+  var variantsOverlay = document.getElementById('variantsOverlay');
+  var variantsEditOverlay = document.getElementById('variantsEditOverlay');
+  var currentVariantEditId = null;
+
+  function renderVariantsDrinkList(){
+    var listEl4 = document.getElementById('variantsDrinkList');
+    var html = '';
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      var id = PRICE_IDS[i];
+      var count = (variantDefs[id] || []).length;
+      html +=
+        '<div class="variantsDrinkRow" data-id="' + id + '">' +
+          '<div>' +
+            '<div class="variantsDrinkName">' + NAMES[id] + '</div>' +
+            '<div class="variantsDrinkCount">' + (count === 0 ? 'Keine Varianten' : count + ' Variante' + (count > 1 ? 'n' : '')) + '</div>' +
+          '</div>' +
+          '<div class="variantsDrinkArrow">›</div>' +
+        '</div>';
+    }
+    listEl4.innerHTML = html;
+
+    var rows = listEl4.querySelectorAll('.variantsDrinkRow');
+    for(var r = 0; r < rows.length; r++){
+      rows[r].addEventListener('click', function(e){
+        var id = this.getAttribute('data-id');
+        openVariantsEdit(id);
+      });
+    }
+  }
+
+  variantsBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    renderVariantsDrinkList();
+    settingsOverlay.classList.remove('open');
+    variantsOverlay.classList.add('open');
+  });
+
+  document.getElementById('variantsCloseBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    variantsOverlay.classList.remove('open');
+  });
+  variantsOverlay.addEventListener('click', function(e){
+    if(e.target === variantsOverlay) variantsOverlay.classList.remove('open');
+  });
+
+  // Varianten verwalten: Editier-Ansicht für ein einzelnes Getränk
+  function renderVariantsEditList(){
+    var listEl5 = document.getElementById('variantsEditList');
+    var variants = variantDefs[currentVariantEditId] || [];
+    if(variants.length === 0){
+      listEl5.innerHTML = '<div class="variantsHint">Noch keine Varianten. Füge unten welche hinzu.</div>';
+      return;
+    }
+    var html = '';
+    for(var i = 0; i < variants.length; i++){
+      html +=
+        '<div class="variantEditRow">' +
+          '<span class="variantEditName">' + variants[i] + '</span>' +
+          '<button type="button" class="variantDeleteBtn" data-index="' + i + '">✕</button>' +
+        '</div>';
+    }
+    listEl5.innerHTML = html;
+
+    var delBtns = listEl5.querySelectorAll('.variantDeleteBtn');
+    for(var d = 0; d < delBtns.length; d++){
+      delBtns[d].addEventListener('click', function(e){
+        e.preventDefault();
+        var idx = parseInt(this.getAttribute('data-index'), 10);
+        var removedName = variantDefs[currentVariantEditId][idx];
+        variantDefs[currentVariantEditId].splice(idx, 1);
+        delete variantCounts[currentVariantEditId][removedName];
+        saveVariantDefs();
+        renderVariantsEditList();
+        refreshRowMode(currentVariantEditId);
+      });
+    }
+  }
+
+  function openVariantsEdit(id){
+    currentVariantEditId = id;
+    document.getElementById('variantsEditTitle').textContent = NAMES[id] + ' — Varianten';
+    document.getElementById('variantNewInput').value = '';
+    renderVariantsEditList();
+    variantsOverlay.classList.remove('open');
+    variantsEditOverlay.classList.add('open');
+  }
+
+  document.getElementById('variantsEditCloseBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    variantsEditOverlay.classList.remove('open');
+  });
+  variantsEditOverlay.addEventListener('click', function(e){
+    if(e.target === variantsEditOverlay) variantsEditOverlay.classList.remove('open');
+  });
+
+  document.getElementById('variantAddBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    var input = document.getElementById('variantNewInput');
+    var name = input.value.trim();
+    if(!name) return;
+    if(!variantDefs[currentVariantEditId]) variantDefs[currentVariantEditId] = [];
+    if(variantDefs[currentVariantEditId].indexOf(name) > -1){
+      input.value = '';
+      return;
+    }
+    variantDefs[currentVariantEditId].push(name);
+    saveVariantDefs();
+    input.value = '';
+    renderVariantsEditList();
+    refreshRowMode(currentVariantEditId);
+  });
+
+  document.getElementById('variantNewInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      document.getElementById('variantAddBtn').click();
+    }
+  });
+
   confirmOverlay.addEventListener('click', function(e){
-    if(e.target === confirmOverlay) confirmOverlay.classList.remove('open');
+    if(e.target === confirmOverlay){
+      pendingConfirmAction = null;
+      confirmOverlay.classList.remove('open');
+    }
   });
 
   // Bildschirm bleibt an, solange die App aktiv/sichtbar ist
