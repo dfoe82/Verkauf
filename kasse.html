@@ -136,13 +136,19 @@
     min-height:0;
     min-width:0;
     padding: 7px 8px 5px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #drinkRows{
     display:grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap:6px;
     align-content:start;
-    overflow-y:auto;
-    overflow-x:hidden;
-    -webkit-overflow-scrolling: touch;
   }
 
   .row{
@@ -157,7 +163,6 @@
     min-width:0;
   }
   .row.pfand{
-    grid-column: 1 / -1;
     border-color: rgba(127,179,201,0.35);
     background: linear-gradient(180deg, rgba(127,179,201,0.08), var(--chalk-bg-2));
   }
@@ -981,7 +986,12 @@
   if(storedDrinks){
     try {
       var parsed = JSON.parse(storedDrinks);
-      if(Array.isArray(parsed) && parsed.length > 0){ DRINKS = parsed; }
+      var isValid = Array.isArray(parsed) && parsed.length > 0 && parsed.every(function(d){
+        return d && typeof d.id === 'string' && d.id.length > 0 &&
+               typeof d.name === 'string' && d.name.length > 0 &&
+               typeof d.price === 'number' && !isNaN(d.price);
+      });
+      if(isValid){ DRINKS = parsed; } else { DRINKS = DEFAULT_DRINKS; }
     } catch(err){ DRINKS = DEFAULT_DRINKS; }
   }
 
@@ -1092,6 +1102,7 @@
 
   function getPrice(id){
     var input = document.querySelector('.priceInput[data-price-id="' + id + '"]');
+    if(!input) return 0;
     var v = parseFloat(input.value.replace(',', '.'));
     return isNaN(v) ? 0 : v;
   }
@@ -1106,6 +1117,7 @@
     for(var i = 0; i < PRICE_IDS.length; i++){
       var id = PRICE_IDS[i];
       var span = document.querySelector('.priceWithPfand[data-price-id="' + id + '"]');
+      if(!span) continue;
       var withPfand = getPrice(id) + pfandPreis;
       span.textContent = '(' + fmt(withPfand) + ' € inkl. Pfand)';
     }
@@ -1113,7 +1125,9 @@
 
   function updateRow(id){
     var row = document.querySelector('.row[data-id="' + id + '"]');
+    if(!row) return;
     var qtyEl = row.querySelector('[data-role="qty"]');
+    if(!qtyEl) return;
     var qty = counts[id];
     qtyEl.textContent = qty;
     qtyEl.classList.toggle('zero', qty === 0);
@@ -1121,7 +1135,9 @@
 
   function updateSold(id){
     var row = document.querySelector('.row[data-id="' + id + '"]');
+    if(!row) return;
     var soldEl = row.querySelector('[data-role="sold"] b');
+    if(!soldEl) return;
     soldEl.textContent = totals[id];
   }
 
