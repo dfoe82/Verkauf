@@ -1212,6 +1212,8 @@
       (function(id, qty){
         runTransaction(ref(db, 'stats/totals/' + id), function(current){
           return (current || 0) + sign * qty;
+        }).catch(function(err){
+          showStatsSyncError(err);
         });
       })(id, itemCounts[id]);
     }
@@ -1222,11 +1224,22 @@
             var safeVName = vName.replace(/[.#$\[\]\/]/g, '_');
             runTransaction(ref(db, 'stats/variantTotals/' + vid + '/' + safeVName), function(current){
               return (current || 0) + sign * qty;
+            }).catch(function(err){
+              showStatsSyncError(err);
             });
           })(vid, vName, itemVariants[vid][vName]);
         }
       }
     }
+  }
+
+  var statsSyncErrorShown = false;
+  function showStatsSyncError(err){
+    console.error('Fehler beim Aktualisieren der Verkaufszähler:', err);
+    if(statsSyncErrorShown) return; // nicht mit mehreren Meldungen gleichzeitig überfluten
+    statsSyncErrorShown = true;
+    alert('Achtung: Die Verkaufszähler konnten nicht synchronisiert werden (Verbindungs- oder Berechtigungsproblem). Bitte Internetverbindung und Firebase-Regeln prüfen. Der Bon selbst wurde trotzdem abgeschickt.');
+    setTimeout(function(){ statsSyncErrorShown = false; }, 15000);
   }
 
   function updatePfandSoldTotal(){
