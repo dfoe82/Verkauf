@@ -136,6 +136,69 @@
     text-transform:uppercase;
   }
   .orderDoneBtn:active{ transform:scale(0.95); background: rgba(127,174,111,0.28); }
+  .orderBtnGroup{
+    display:flex;
+    gap:8px;
+  }
+  .orderCancelBtn{
+    padding: 9px 18px;
+    border-radius:9px;
+    border:1px solid rgba(217,118,90,0.4);
+    background: rgba(217,118,90,0.12);
+    color: #d9765a;
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .orderCancelBtn:active{ transform:scale(0.95); background: rgba(217,118,90,0.24); }
+
+  #confirmOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.6);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding: 24px;
+  }
+  #confirmOverlay.open{ display:flex; }
+  .confirmBox{
+    background: var(--chalk-bg-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 18px;
+    max-width: 320px;
+    width:100%;
+    text-align:center;
+  }
+  .confirmText{
+    font-size:15px;
+    line-height:1.4;
+    color: var(--chalk);
+    margin-bottom:16px;
+  }
+  .confirmActions{
+    display:flex;
+    gap:10px;
+  }
+  .confirmActions button{
+    flex:1;
+    padding: 11px 8px;
+    border-radius:9px;
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .confirmActions .btnCancel{
+    border:1px solid var(--line);
+    background: rgba(236,230,214,0.05);
+    color: var(--chalk-dim);
+  }
+  .confirmActions .btnDanger{
+    border:1px solid rgba(217,118,90,0.4);
+    background: rgba(217,118,90,0.14);
+    color: #d9765a;
+  }
 </style>
 </head>
 <body>
@@ -150,9 +213,19 @@
   </div>
 </div>
 
+<div id="confirmOverlay">
+  <div class="confirmBox">
+    <div class="confirmText">Diese Bestellung wirklich stornieren?</div>
+    <div class="confirmActions">
+      <button type="button" class="btnCancel" id="confirmCancelBtn">Abbrechen</button>
+      <button type="button" class="btnDanger" id="confirmOkBtn">Stornieren</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, remove, onValue }
+  import { getDatabase, ref, remove, onValue, runTransaction }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
@@ -168,6 +241,30 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const ordersRef = ref(db, 'orders');
+
+  // Verkaufszähler zentral in Firebase korrigieren (nur beim Stornieren nötig — "Fertig" lässt die Zähler unverändert)
+  function applyStatsDelta(itemCounts, itemVariants, sign){
+    if(!itemCounts) return;
+    for(var id in itemCounts){
+      (function(id, qty){
+        runTransaction(ref(db, 'stats/totals/' + id), function(current){
+          return (current || 0) + sign * qty;
+        });
+      })(id, itemCounts[id]);
+    }
+    if(itemVariants){
+      for(var vid in itemVariants){
+        for(var vName in itemVariants[vid]){
+          (function(vid, vName, qty){
+            var safeVName = vName.replace(/[.#$\[\]\/]/g, '_');
+            runTransaction(ref(db, 'stats/variantTotals/' + vid + '/' + safeVName), function(current){
+              return (current || 0) + sign * qty;
+            });
+          })(vid, vName, itemVariants[vid][vName]);
+        }
+      }
+    }
+  }
 
   // Spot-Filter aus der URL lesen, z.B. anzeige.html?spots=1-4
   var params = new URLSearchParams(window.location.search);
@@ -212,7 +309,10 @@
           '<div class="orderItems">' + order.itemsText + '</div>' +
           '<div class="orderFoot">' +
             '<span class="orderTotal">' + fmt(order.total) + ' €</span>' +
-            '<button type="button" class="orderDoneBtn" data-key="' + order.key + '">Fertig</button>' +
+            '<div class="orderBtnGroup">' +
+              '<button type="button" class="orderCancelBtn" data-key="' + order.key + '">Stornieren</button>' +
+              '<button type="button" class="orderDoneBtn" data-key="' + order.key + '">Fertig</button>' +
+            '</div>' +
           '</div>' +
         '</div>';
     }
@@ -226,7 +326,49 @@
         remove(ref(db, 'orders/' + key));
       });
     }
+
+    var cancelBtns = listEl.querySelectorAll('.orderCancelBtn');
+    for(var c = 0; c < cancelBtns.length; c++){
+      (function(order){
+        var btn = listEl.querySelector('.orderCancelBtn[data-key="' + order.key + '"]');
+        if(!btn) return;
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          pendingCancelOrder = order;
+          document.getElementById('confirmOverlay').classList.add('open');
+        });
+      })(orders[c]);
+    }
   }
+
+  // Bestätigungsfenster fürs Stornieren
+  var pendingCancelOrder = null;
+  var confirmOverlayEl = document.getElementById('confirmOverlay');
+
+  document.getElementById('confirmCancelBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    pendingCancelOrder = null;
+    confirmOverlayEl.classList.remove('open');
+  });
+
+  document.getElementById('confirmOkBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    if(pendingCancelOrder){
+      if(pendingCancelOrder.itemCounts){
+        applyStatsDelta(pendingCancelOrder.itemCounts, pendingCancelOrder.itemVariants, -1);
+      }
+      remove(ref(db, 'orders/' + pendingCancelOrder.key));
+    }
+    pendingCancelOrder = null;
+    confirmOverlayEl.classList.remove('open');
+  });
+
+  confirmOverlayEl.addEventListener('click', function(e){
+    if(e.target === confirmOverlayEl){
+      pendingCancelOrder = null;
+      confirmOverlayEl.classList.remove('open');
+    }
+  });
 
   var statusEl = document.getElementById('status');
 

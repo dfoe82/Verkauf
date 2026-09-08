@@ -933,7 +933,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, remove, onValue }
+  import { getDatabase, ref, push, remove, onValue, runTransaction, set }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
@@ -949,6 +949,7 @@
   const fbApp = initializeApp(firebaseConfig);
   const db = getDatabase(fbApp);
   const ordersRef = ref(db, 'orders');
+  const statsRef = ref(db, 'stats');   // zentrale Verkaufszähler (Menge je Getränk/Variante) — geteilt über alle Geräte
 
   // localStorage-Verfügbarkeit ganz zu Beginn robust prüfen (wird für Getränkeliste, Preise, Varianten gebraucht)
   var localStorageAvailable = false;
@@ -1187,29 +1188,45 @@
   function handleStep(id, action, variant){
     if(action === 'plus'){
       counts[id]++;
-      totals[id]++;
-      updateSold(id);
       if(variant){
         variantCounts[id][variant] = (variantCounts[id][variant] || 0) + 1;
-        variantTotals[id][variant] = (variantTotals[id][variant] || 0) + 1;
       }
     }
     if(action === 'minus'){
       if(counts[id] > 0){
         counts[id]--;
-        totals[id] = Math.max(0, totals[id] - 1);
-        updateSold(id);
         if(variant && variantCounts[id][variant] > 0){
           variantCounts[id][variant]--;
-          variantTotals[id][variant] = Math.max(0, (variantTotals[id][variant] || 0) - 1);
         }
       }
     }
     updateRow(id);
     updateTotal();
-    updatePfandSoldTotal();
-    updateUmsatz();
     refreshRowMode(id);
+  }
+
+  // Verkaufszähler zentral in Firebase per Transaktion anpassen (sign: +1 beim Abschicken, -1 beim Stornieren)
+  // Transaktionen verhindern, dass zwei Geräte sich gegenseitig überschreiben, wenn gleichzeitig verkauft wird
+  function applyStatsDelta(itemCounts, itemVariants, sign){
+    for(var id in itemCounts){
+      (function(id, qty){
+        runTransaction(ref(db, 'stats/totals/' + id), function(current){
+          return (current || 0) + sign * qty;
+        });
+      })(id, itemCounts[id]);
+    }
+    if(itemVariants){
+      for(var vid in itemVariants){
+        for(var vName in itemVariants[vid]){
+          (function(vid, vName, qty){
+            var safeVName = vName.replace(/[.#$\[\]\/]/g, '_');
+            runTransaction(ref(db, 'stats/variantTotals/' + vid + '/' + safeVName), function(current){
+              return (current || 0) + sign * qty;
+            });
+          })(vid, vName, itemVariants[vid][vName]);
+        }
+      }
+    }
   }
 
   function updatePfandSoldTotal(){
@@ -1425,13 +1442,19 @@
 
       var cancelBtns = listEl2.querySelectorAll('.orderCancelBtn');
       for(var c = 0; c < cancelBtns.length; c++){
-        cancelBtns[c].addEventListener('click', function(e){
-          e.preventDefault();
-          var key = this.getAttribute('data-key');
-          showConfirm('Diese Bestellung wirklich stornieren?', 'Stornieren', function(){
-            remove(ref(db, 'orders/' + key));
+        (function(order){
+          var btn = listEl2.querySelector('.orderCancelBtn[data-key="' + order.key + '"]');
+          if(!btn) return;
+          btn.addEventListener('click', function(e){
+            e.preventDefault();
+            showConfirm('Diese Bestellung wirklich stornieren?', 'Stornieren', function(){
+              if(order.itemCounts){
+                applyStatsDelta(order.itemCounts, order.itemVariants, -1);
+              }
+              remove(ref(db, 'orders/' + order.key));
+            });
           });
-        });
+        })(orderQueue[c]);
       }
     }
   }
@@ -1448,6 +1471,26 @@
     list.sort(function(a, b){ return a.time - b.time; });
     orderQueue = list;
     renderOrders();
+  });
+
+  // Live-Abo: zentrale Verkaufszähler je Getränk (von jedem Gerät aktuell gehalten)
+  onValue(ref(db, 'stats/totals'), function(snapshot){
+    var data = snapshot.val() || {};
+    for(var i = 0; i < IDS.length; i++){
+      var id = IDS[i];
+      totals[id] = data[id] || 0;
+      updateSold(id);
+    }
+    updatePfandSoldTotal();
+    updateUmsatz();
+  });
+
+  // Live-Abo: zentrale Verkaufszähler je Variante
+  onValue(ref(db, 'stats/variantTotals'), function(snapshot){
+    var data = snapshot.val() || {};
+    for(var id in variantTotals){
+      variantTotals[id] = data[id] || {};
+    }
   });
 
   var ordersOverlay = document.getElementById('ordersOverlay');
@@ -1486,17 +1529,24 @@
 
     var itemsList = [];
     var hasItems = false;
+    var itemCounts = {};      // Getränk-ID -> verkaufte Menge (für spätere Storno-Korrektur)
+    var itemVariants = {};    // Getränk-ID -> { Variantenname: Menge } (für spätere Storno-Korrektur)
+
     for(var i = 0; i < PRICE_IDS.length; i++){
       var id = PRICE_IDS[i];
       if(counts[id] > 0){
         hasItems = true;
+        itemCounts[id] = counts[id];
         if(hasVariants(id)){
           var parts = [];
+          var vSnapshot = {};
           for(var vName in variantCounts[id]){
             if(variantCounts[id][vName] > 0){
               parts.push(variantCounts[id][vName] + '× ' + vName);
+              vSnapshot[vName] = variantCounts[id][vName];
             }
           }
+          itemVariants[id] = vSnapshot;
           itemsList.push(NAMES[id] + ' (' + parts.join(', ') + ')');
         } else {
           itemsList.push(counts[id] + '× ' + NAMES[id]);
@@ -1508,9 +1558,12 @@
       push(ordersRef, {
         spot: selectedSpot,
         itemsText: itemsList.join(', '),
+        itemCounts: itemCounts,
+        itemVariants: itemVariants,
         total: currentTotal,
         time: Date.now()
       });
+      applyStatsDelta(itemCounts, itemVariants, +1);
     }
 
     for(var j = 0; j < IDS.length; j++){
@@ -1541,13 +1594,10 @@
   document.getElementById('resetCounterBtn').addEventListener('click', function(e){
     e.preventDefault();
     settingsOverlay.classList.remove('open');
-    showConfirm('Wirklich alle Zähler (verkaufte Menge) zurücksetzen?', 'Zurücksetzen', function(){
-      for(var i = 0; i < IDS.length; i++){
-        totals[IDS[i]] = 0;
-        updateSold(IDS[i]);
-      }
-      updatePfandSoldTotal();
-      updateUmsatz();
+    showConfirm('Wirklich alle Zähler (verkaufte Menge) für ALLE Geräte zurücksetzen?', 'Zurücksetzen', function(){
+      set(ref(db, 'stats/totals'), {});
+      set(ref(db, 'stats/variantTotals'), {});
+      // Lokale Anzeige aktualisiert sich automatisch über das Live-Abo (onValue), sobald Firebase bestätigt
     });
   });
 
@@ -1871,6 +1921,8 @@
           delete variantCounts[id];
           delete variantTotals[id];
           delete NAMES[id];
+          remove(ref(db, 'stats/totals/' + id));
+          remove(ref(db, 'stats/variantTotals/' + id));
           saveDrinkList();
           saveVariantDefs();
           renderDrinkRows();
