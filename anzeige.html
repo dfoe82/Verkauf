@@ -213,7 +213,7 @@
   </div>
 </div>
 
-<div id="confirmOverlay">
+<div id="confirmOverlay" tabindex="-1">
   <div class="confirmBox">
     <div class="confirmText">Diese Bestellung wirklich stornieren?</div>
     <div class="confirmActions">
@@ -329,21 +329,32 @@
 
     var cancelBtns = listEl.querySelectorAll('.orderCancelBtn');
     for(var c = 0; c < cancelBtns.length; c++){
-      (function(order){
-        var btn = listEl.querySelector('.orderCancelBtn[data-key="' + order.key + '"]');
-        if(!btn) return;
+      (function(btn){
+        var key = btn.getAttribute('data-key');
+        var order = orders.find(function(o){ return o.key === key; });
+        if(!order) return;
         btn.addEventListener('click', function(e){
           e.preventDefault();
           pendingCancelOrder = order;
-          document.getElementById('confirmOverlay').classList.add('open');
+          openConfirmDialog();
         });
-      })(orders[c]);
+      })(cancelBtns[c]);
     }
   }
 
   // Bestätigungsfenster fürs Stornieren
   var pendingCancelOrder = null;
   var confirmOverlayEl = document.getElementById('confirmOverlay');
+
+  function openConfirmDialog(){
+    confirmOverlayEl.classList.add('open');
+    // Dem Dialog aktiv den Fokus geben, damit der erste Tap sofort greift
+    // (manche eingebetteten WebViews benötigen sonst einen "Aktivierungs-Tap" ins Leere zuerst)
+    requestAnimationFrame(function(){
+      confirmOverlayEl.focus();
+      document.getElementById('confirmOkBtn').focus();
+    });
+  }
 
   document.getElementById('confirmCancelBtn').addEventListener('click', function(e){
     e.preventDefault();

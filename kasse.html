@@ -921,7 +921,7 @@
 </div>
 
 
-<div id="confirmOverlay">
+<div id="confirmOverlay" tabindex="-1">
   <div class="confirmBox">
     <div class="confirmText" id="confirmText">Wirklich alle Zähler (verkaufte Menge) zurücksetzen?</div>
     <div class="confirmActions">
@@ -1589,6 +1589,11 @@
     confirmOkBtn.textContent = okLabel;
     pendingConfirmAction = onConfirm;
     confirmOverlay.classList.add('open');
+    // Dem Dialog aktiv den Fokus geben, damit der erste Tap sofort greift
+    requestAnimationFrame(function(){
+      confirmOverlay.focus();
+      confirmOkBtn.focus();
+    });
   }
 
   document.getElementById('resetCounterBtn').addEventListener('click', function(e){
