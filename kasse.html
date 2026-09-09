@@ -149,6 +149,14 @@
   }
   .spotBtn:active{ transform: scale(0.9); }
 
+  /* ---- Rechte Spalte (enthält Getränkeliste + Footer); im Querformat wird sie zur eigentlichen rechten Spalte ---- */
+  #rightColumn{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+
   /* ---- Raster ---- */
   #list{
     flex:1;
