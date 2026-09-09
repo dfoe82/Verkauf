@@ -472,11 +472,6 @@
     display:flex; align-items:center; justify-content:center;
     padding:0 3px;
   }
-    color: var(--chalk-dim);
-    border-color: var(--line);
-    padding: 11px 16px;
-    font-size:18px;
-  }
   .btn:active{ background: rgba(236,230,214,0.16); transform:scale(0.98); }
   .btn.secondary{
     border-color: var(--line);
@@ -797,6 +792,86 @@
     display:flex;
     gap:10px;
   }
+  /* ==================================================================
+     Querformat (Landscape): totalBar wird zur linken Seitenspalte,
+     Getränke-Liste + Footer bilden die rechte Spalte, 3 statt 2 Spalten
+     ================================================================== */
+  @media (orientation: landscape) and (min-width: 640px){
+    #app{
+      flex-direction: row;
+      overflow: hidden;
+    }
+    #totalBar{
+      flex-shrink:0;
+      width: 220px;
+      height: 100%;
+      min-height:0;
+      border-bottom:none;
+      border-right: 1px dashed var(--line);
+      overflow-y:auto;
+      -webkit-overflow-scrolling: touch;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding: 14px 12px;
+    }
+    #totalValue{
+      font-size:28px;
+    }
+    #totalBar .label{
+      margin-bottom:0;
+    }
+    #changeRow{
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+    #spotRow{
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .spotButtons{
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .spotBtn{
+      width:22px; height:22px;
+      font-size:11px;
+    }
+    #quickCashRow{
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+    .quickCashBtn{
+      padding:4px 10px;
+      font-size:11px;
+    }
+
+    #rightColumn{
+      flex:1;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+
+    #list{
+      flex:1;
+    }
+    #drinkRows{
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    footer{
+      flex-shrink:0;
+    }
+  }
+
+  @media (orientation: landscape) and (min-width: 900px){
+    #drinkRows{
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -831,6 +906,8 @@
     </div>
   </div>
 
+  <div id="rightColumn">
+
   <div id="list">
 
     <div id="drinkRows"></div>
@@ -859,6 +936,8 @@
     </div>
     <button type="button" class="btn cancelBtn" id="cancelOrderBtn">Aktuellen Bon abbrechen</button>
   </footer>
+
+  </div>
 
 </div>
 
