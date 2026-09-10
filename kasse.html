@@ -880,6 +880,28 @@
     }
   }
 
+  #schnapszahlPopup{
+    position:fixed;
+    left:50%;
+    top:14px;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--amber);
+    color:#241a0c;
+    font-weight:700;
+    font-size:14px;
+    padding:10px 18px;
+    border-radius:12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    z-index:200;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    white-space:nowrap;
+  }
+  #schnapszahlPopup.show{
+    opacity:1;
+    transform: translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body>
@@ -1251,7 +1273,38 @@
     if(!row) return;
     var soldEl = row.querySelector('[data-role="sold"] b');
     if(!soldEl) return;
-    soldEl.textContent = totals[id];
+    var qty = totals[id];
+    soldEl.textContent = qty;
+    checkSchnapszahl(id, qty);
+  }
+
+  // Prüft, ob eine "Schnapszahl" (111, 222, 333, ...) erreicht wurde, und zeigt kurz eine Info an
+  var lastSchnapszahlShown = {}; // verhindert Mehrfachanzeige, falls updateSold mehrmals mit gleichem Wert läuft
+  function isSchnapszahl(n){
+    if(n < 111) return false;
+    var s = String(n);
+    return s.split('').every(function(ch){ return ch === s[0]; });
+  }
+  function checkSchnapszahl(id, qty){
+    if(!isSchnapszahl(qty)) return;
+    if(lastSchnapszahlShown[id] === qty) return; // schon gezeigt für diesen Wert
+    lastSchnapszahlShown[id] = qty;
+    showSchnapszahlPopup(qty + '. ' + (NAMES[id] || id) + ' verkauft! 🎉');
+  }
+
+  function showSchnapszahlPopup(text){
+    var popup = document.getElementById('schnapszahlPopup');
+    if(!popup){
+      popup = document.createElement('div');
+      popup.id = 'schnapszahlPopup';
+      document.body.appendChild(popup);
+    }
+    popup.textContent = text;
+    popup.classList.add('show');
+    clearTimeout(popup._hideTimer);
+    popup._hideTimer = setTimeout(function(){
+      popup.classList.remove('show');
+    }, 3000);
   }
 
   var currentTotal = 0;
