@@ -1392,7 +1392,8 @@
   function handleStep(id, action, variant){
     if(action === 'plus'){
       // Vorausschauend prüfen: Wäre DIESES Stück (das nächste in Reihenfolge) ein Jubiläums-Stück?
-      var nextPosition = (totals[id] || 0) + counts[id] + 1;
+      // Number(...) erzwingt echte Zahlen-Addition, falls totals[id] z.B. als String vorliegt
+      var nextPosition = Number(totals[id] || 0) + Number(counts[id] || 0) + 1;
       var willBeFree = isSchnapszahl(nextPosition);
 
       counts[id]++;
@@ -1415,7 +1416,7 @@
     if(action === 'minus'){
       if(counts[id] > 0){
         // Falls das zurückgenommene Stück ein Gratis-Jubiläumsstück war, Markierung mit zurücknehmen
-        var positionBeingRemoved = (totals[id] || 0) + counts[id];
+        var positionBeingRemoved = Number(totals[id] || 0) + Number(counts[id] || 0);
         if(isSchnapszahl(positionBeingRemoved) && freeJubilaeumCount[id] > 0){
           freeJubilaeumCount[id]--;
         }
@@ -1436,7 +1437,7 @@
     for(var id in itemCounts){
       (function(id, qty){
         runTransaction(ref(db, 'stats/totals/' + id), function(current){
-          return (current || 0) + sign * qty;
+          return Number(current || 0) + sign * Number(qty);
         }).catch(function(err){
           showStatsSyncError(err);
         });
@@ -1448,7 +1449,7 @@
           (function(vid, vName, qty){
             var safeVName = vName.replace(/[.#$\[\]\/]/g, '_');
             runTransaction(ref(db, 'stats/variantTotals/' + vid + '/' + safeVName), function(current){
-              return (current || 0) + sign * qty;
+              return Number(current || 0) + sign * Number(qty);
             }).catch(function(err){
               showStatsSyncError(err);
             });
@@ -1737,7 +1738,7 @@
     var data = snapshot.val() || {};
     for(var i = 0; i < IDS.length; i++){
       var id = IDS[i];
-      totals[id] = data[id] || 0;
+      totals[id] = Number(data[id]) || 0;
       updateSold(id);
     }
     updatePfandSoldTotal();

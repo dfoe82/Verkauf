@@ -248,7 +248,7 @@
     for(var id in itemCounts){
       (function(id, qty){
         runTransaction(ref(db, 'stats/totals/' + id), function(current){
-          return (current || 0) + sign * qty;
+          return Number(current || 0) + sign * Number(qty);
         }).catch(function(err){
           console.error('Fehler beim Aktualisieren der Verkaufszähler:', err);
         });
@@ -260,7 +260,7 @@
           (function(vid, vName, qty){
             var safeVName = vName.replace(/[.#$\[\]\/]/g, '_');
             runTransaction(ref(db, 'stats/variantTotals/' + vid + '/' + safeVName), function(current){
-              return (current || 0) + sign * qty;
+              return Number(current || 0) + sign * Number(qty);
             }).catch(function(err){
               console.error('Fehler beim Aktualisieren der Verkaufszähler:', err);
             });
