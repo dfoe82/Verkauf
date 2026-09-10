@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+<!--
+  Versionsverlauf (kasse.html):
+  v1.1 - Bon-Vorschau vor dem Abschicken, Verkaufsstatistik-Übersicht (Umsatzanteile
+         + Verlauf nach Uhrzeit), Bestandswarnung pro Getränk, "Event komplett
+         zurücksetzen", Versionsnummer eingeführt.
+  v1.0 - Vorheriger Stand: Firebase-Anbindung, Bestellungen mit Storno,
+         Jubiläums-Rabatt (Schnapszahlen), Querformat-Unterstützung.
+-->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -368,6 +376,21 @@
     text-align:right;
   }
   .sold b{ color: var(--green); font-weight:700; }
+  .stockWarning{
+    font-size:10px;
+    font-weight:700;
+    color: var(--red);
+    text-align:right;
+    margin-top:1px;
+  }
+  .stockWarning.critical{
+    color: #fff;
+    background: var(--red);
+    border-radius:4px;
+    padding:1px 5px;
+    display:inline-block;
+    float:right;
+  }
   .row.pfand .sold{ margin-left:4px; }
 
   .row.row-hidden{
@@ -513,6 +536,12 @@
     font-weight:700;
     color: var(--chalk);
   }
+  .versionTag{
+    font-size:11px;
+    font-weight:400;
+    color: var(--chalk-dim);
+    margin-left:4px;
+  }
   .settingsClose{
     width:30px; height:30px;
     border-radius:8px;
@@ -553,20 +582,106 @@
     padding: 13px 8px;
   }
 
-  #variantsOverlay, #variantsEditOverlay, #pickVariantOverlay, #drinksManageOverlay{
+  #variantsOverlay, #variantsEditOverlay, #pickVariantOverlay, #drinksManageOverlay, #statsOverlay{
     position:fixed; inset:0;
     background: rgba(0,0,0,0.6);
     display:none;
     align-items:flex-end;
     z-index:65;
   }
-  #variantsOverlay.open, #variantsEditOverlay.open, #pickVariantOverlay.open, #drinksManageOverlay.open{ display:flex; }
+  #variantsOverlay.open, #variantsEditOverlay.open, #pickVariantOverlay.open, #drinksManageOverlay.open, #statsOverlay.open{ display:flex; }
 
   .variantsHint{
     font-size:12px;
     color: var(--chalk-dim);
     line-height:1.4;
     margin-bottom:12px;
+  }
+
+  .statsSection{
+    margin-bottom:18px;
+  }
+  .statsSection:last-child{
+    margin-bottom:0;
+  }
+  .statsSectionTitle{
+    font-size:11px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color: var(--chalk-dim);
+    margin-bottom:8px;
+  }
+  .statsShareRow{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .statsShareName{
+    font-size:13px;
+    color: var(--chalk);
+    width:100px;
+    flex-shrink:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .statsShareBarTrack{
+    flex:1;
+    height:14px;
+    background: rgba(236,230,214,0.08);
+    border-radius:7px;
+    overflow:hidden;
+  }
+  .statsShareBarFill{
+    height:100%;
+    background: var(--amber);
+    border-radius:7px;
+  }
+  .statsSharePercent{
+    font-size:12px;
+    font-weight:700;
+    color: var(--amber);
+    width:38px;
+    text-align:right;
+    flex-shrink:0;
+  }
+  .statsEmpty{
+    font-size:12px;
+    color: var(--chalk-dim);
+    text-align:center;
+    padding:10px 0;
+  }
+  .statsHourlyRow{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:5px;
+  }
+  .statsHourlyLabel{
+    font-size:12px;
+    color: var(--chalk-dim);
+    width:70px;
+    flex-shrink:0;
+  }
+  .statsHourlyBarTrack{
+    flex:1;
+    height:12px;
+    background: rgba(236,230,214,0.08);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .statsHourlyBarFill{
+    height:100%;
+    background: var(--blue-chalk);
+    border-radius:6px;
+  }
+  .statsHourlyCount{
+    font-size:12px;
+    color: var(--chalk);
+    width:26px;
+    text-align:right;
+    flex-shrink:0;
   }
   .variantsDrinkList{
     display:flex;
@@ -615,6 +730,24 @@
     border: 1px solid var(--line);
     border-radius: 9px;
     padding: 10px 12px;
+  }
+  .drinkManageRow{
+    gap:8px;
+  }
+  .drinkManageRow .drinkRenameInput{
+    flex:1;
+    min-width:0;
+  }
+  .drinkStockInput{
+    width:64px;
+    background: rgba(236,230,214,0.08);
+    border:1px solid var(--line);
+    border-radius:6px;
+    color: var(--chalk);
+    font-size:13px;
+    padding:6px 8px;
+    text-align:center;
+    font-family: inherit;
   }
   .variantEditName{
     font-size:14px;
@@ -770,6 +903,34 @@
     text-transform:uppercase;
   }
   .orderCancelBtn:active{ transform:scale(0.95); }
+
+  #orderPreviewOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.6);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding: 24px;
+  }
+  #orderPreviewOverlay.open{ display:flex; }
+  .orderPreviewTitle{
+    font-size:16px;
+    font-weight:700;
+    color: var(--chalk);
+    margin-bottom:12px;
+  }
+  .orderPreviewText{
+    font-size:15px;
+    line-height:1.5;
+    color: var(--chalk);
+    white-space: pre-line;
+    text-align:left;
+    background: rgba(236,230,214,0.06);
+    border-radius:10px;
+    padding:12px 14px;
+    margin-bottom:16px;
+  }
 
   #confirmOverlay{
     position:fixed; inset:0;
@@ -1004,7 +1165,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen</div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.1</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -1018,6 +1179,25 @@
       <button type="button" class="btn secondary settingsItem" id="priceEditBtn">Preise ändern</button>
       <button type="button" class="btn secondary settingsItem" id="drinksManageBtn" style="grid-column: 1 / -1;">Getränke verwalten</button>
       <button type="button" class="btn secondary settingsItem" id="variantsBtn" style="grid-column: 1 / -1;">Varianten verwalten</button>
+      <button type="button" class="btn secondary settingsItem" id="statsBtn" style="grid-column: 1 / -1;">Verkaufsstatistik</button>
+      <button type="button" class="btn secondary settingsItem cancelBtn" id="fullEventResetBtn" style="grid-column: 1 / -1;">Event komplett zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<div id="statsOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle">Verkaufsstatistik</div>
+      <button type="button" class="settingsClose" id="statsCloseBtn">✕</button>
+    </div>
+    <div class="statsSection">
+      <div class="statsSectionTitle">Anteile am Umsatz</div>
+      <div id="statsShareList"></div>
+    </div>
+    <div class="statsSection">
+      <div class="statsSectionTitle">Verkäufe nach Uhrzeit (letzte Bestellungen)</div>
+      <div id="statsHourlyList"></div>
     </div>
   </div>
 </div>
@@ -1073,6 +1253,17 @@
 </div>
 
 
+<div id="orderPreviewOverlay" tabindex="-1">
+  <div class="confirmBox">
+    <div class="orderPreviewTitle">Bestellung prüfen</div>
+    <div class="orderPreviewText" id="orderPreviewText"></div>
+    <div class="confirmActions">
+      <button type="button" class="btn secondary" id="orderPreviewCancel">Zurück</button>
+      <button type="button" class="btn" id="orderPreviewOk">Abschicken</button>
+    </div>
+  </div>
+</div>
+
 <div id="confirmOverlay" tabindex="-1">
   <div class="confirmBox">
     <div class="confirmText" id="confirmText">Wirklich alle Zähler (verkaufte Menge) zurücksetzen?</div>
@@ -1093,7 +1284,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, remove, onValue, runTransaction, set }
+  import { getDatabase, ref, push, remove, onValue, runTransaction, set, get }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
@@ -1228,6 +1419,7 @@
         '<button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>' +
         '<div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>' +
         '<div class="sold" data-role="sold">verkauft: <b>0</b></div>' +
+        '<div class="stockWarning" data-role="stockWarning" style="display:none;"></div>' +
       '</div>';
   }
 
@@ -1254,6 +1446,39 @@
     if(btn){
       var qty = counts[id] || 0;
       btn.textContent = 'Varianten wählen' + (qty > 0 ? ' (' + qty + ')' : '');
+    }
+    refreshStockWarning(id);
+  }
+
+  function refreshStockWarning(id){
+    var row = document.querySelector('.row[data-id="' + id + '"]');
+    if(!row) return;
+    var el = row.querySelector('[data-role="stockWarning"]');
+    if(!el) return;
+
+    var drink = DRINKS.find(function(d){ return d.id === id; });
+    var stock = drink ? drink.stock : null;
+
+    if(stock === undefined || stock === null){
+      el.style.display = 'none';
+      return;
+    }
+
+    var remaining = stock - (totals[id] || 0) - (counts[id] || 0);
+    if(remaining <= 0){
+      el.textContent = 'AUSVERKAUFT';
+      el.className = 'stockWarning critical';
+      el.style.display = 'block';
+    } else if(remaining <= 10){
+      el.textContent = 'Nur noch ' + remaining;
+      el.className = 'stockWarning critical';
+      el.style.display = 'block';
+    } else if(remaining <= 20){
+      el.textContent = 'Noch ' + remaining;
+      el.className = 'stockWarning';
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
     }
   }
 
@@ -1740,6 +1965,7 @@
       var id = IDS[i];
       totals[id] = Number(data[id]) || 0;
       updateSold(id);
+      refreshStockWarning(id);
     }
     updatePfandSoldTotal();
     updateUmsatz();
@@ -1783,14 +2009,12 @@
     updateTotal();
   });
 
-  // "Bestellung abschicken": aktuelle Bestellung nach Firebase hochladen (falls nicht leer), dann Bon zurücksetzen
-  document.getElementById('resetBtn').addEventListener('click', function(e){
-    e.preventDefault();
-
+  // Baut die Zusammenfassung des aktuellen Bons (für Vorschau UND fürs eigentliche Abschicken)
+  function buildOrderSummary(){
     var itemsList = [];
     var hasItems = false;
-    var itemCounts = {};      // Getränk-ID -> verkaufte Menge (für spätere Storno-Korrektur)
-    var itemVariants = {};    // Getränk-ID -> { Variantenname: Menge } (für spätere Storno-Korrektur)
+    var itemCounts = {};
+    var itemVariants = {};
 
     for(var i = 0; i < PRICE_IDS.length; i++){
       var id = PRICE_IDS[i];
@@ -1814,16 +2038,26 @@
       }
     }
 
-    if(hasItems){
+    return { itemsList: itemsList, hasItems: hasItems, itemCounts: itemCounts, itemVariants: itemVariants };
+  }
+
+  // Schickt die aktuelle Bestellung tatsächlich ab (wird erst nach Bestätigung der Vorschau aufgerufen)
+  function submitOrder(summary){
+    if(summary.hasItems){
       push(ordersRef, {
         spot: selectedSpot,
-        itemsText: itemsList.join(', '),
-        itemCounts: itemCounts,
-        itemVariants: itemVariants,
+        itemsText: summary.itemsList.join(', '),
+        itemCounts: summary.itemCounts,
+        itemVariants: summary.itemVariants,
         total: currentTotal,
         time: Date.now()
       });
-      applyStatsDelta(itemCounts, itemVariants, +1);
+      applyStatsDelta(summary.itemCounts, summary.itemVariants, +1);
+
+      // Dauerhafter, schlanker Log-Eintrag für den Verkaufsverlauf nach Uhrzeit (bleibt auch nach "Fertig" erhalten)
+      var totalQty = 0;
+      for(var id in summary.itemCounts){ totalQty += summary.itemCounts[id]; }
+      push(ref(db, 'stats/hourlyLog'), { time: Date.now(), qty: totalQty });
     }
 
     for(var j = 0; j < IDS.length; j++){
@@ -1838,6 +2072,23 @@
     document.getElementById('receivedInput').value = '';
     updateQuickCashActive();
     updateTotal();
+  }
+
+  // "Bestellung abschicken": zeigt zuerst eine Vorschau, tatsächliches Abschicken erst nach Bestätigung
+  document.getElementById('resetBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    var summary = buildOrderSummary();
+
+    if(!summary.hasItems){
+      return; // leerer Bon: nichts zu bestätigen, nichts zu tun
+    }
+
+    var previewText = 'Spot ' + selectedSpot + ': ' + summary.itemsList.join(', ') +
+      '\n\nGesamt: ' + fmt(currentTotal) + ' €';
+
+    showOrderPreview(previewText, function(){
+      submitOrder(summary);
+    });
   });
 
   // Generisches Bestätigungsfenster (wiederverwendbar für mehrere Aktionen)
@@ -1858,6 +2109,44 @@
     });
   }
 
+  // Bon-Vorschau vor dem Abschicken
+  var orderPreviewOverlay = document.getElementById('orderPreviewOverlay');
+  var orderPreviewTextEl = document.getElementById('orderPreviewText');
+  var orderPreviewOkBtn = document.getElementById('orderPreviewOk');
+  var pendingOrderSubmit = null;
+
+  function showOrderPreview(text, onConfirm){
+    orderPreviewTextEl.textContent = text;
+    pendingOrderSubmit = onConfirm;
+    orderPreviewOverlay.classList.add('open');
+    requestAnimationFrame(function(){
+      orderPreviewOverlay.focus();
+      orderPreviewOkBtn.focus();
+    });
+  }
+
+  document.getElementById('orderPreviewCancel').addEventListener('click', function(e){
+    e.preventDefault();
+    pendingOrderSubmit = null;
+    orderPreviewOverlay.classList.remove('open');
+  });
+
+  orderPreviewOkBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    if(pendingOrderSubmit){
+      pendingOrderSubmit();
+    }
+    pendingOrderSubmit = null;
+    orderPreviewOverlay.classList.remove('open');
+  });
+
+  orderPreviewOverlay.addEventListener('click', function(e){
+    if(e.target === orderPreviewOverlay){
+      pendingOrderSubmit = null;
+      orderPreviewOverlay.classList.remove('open');
+    }
+  });
+
   document.getElementById('resetCounterBtn').addEventListener('click', function(e){
     e.preventDefault();
     settingsOverlay.classList.remove('open');
@@ -1865,6 +2154,32 @@
       set(ref(db, 'stats/totals'), {});
       set(ref(db, 'stats/variantTotals'), {});
       // Lokale Anzeige aktualisiert sich automatisch über das Live-Abo (onValue), sobald Firebase bestätigt
+    });
+  });
+
+  // Event komplett zurücksetzen: Zähler, Bestellungen, Verkaufsverlauf UND aktueller Bon — für einen sauberen Neustart
+  document.getElementById('fullEventResetBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    settingsOverlay.classList.remove('open');
+    showConfirm('ACHTUNG: Wirklich das komplette Event zurücksetzen? Löscht alle Zähler, alle offenen Bestellungen und den Verkaufsverlauf – für ALLE Geräte. Das kann nicht rückgängig gemacht werden.', 'Event zurücksetzen', function(){
+      set(ref(db, 'stats/totals'), {});
+      set(ref(db, 'stats/variantTotals'), {});
+      set(ref(db, 'stats/hourlyLog'), {});
+      set(ordersRef, {});
+
+      // Aktuellen Bon auf diesem Gerät ebenfalls leeren
+      for(var j = 0; j < IDS.length; j++){
+        counts[IDS[j]] = 0;
+        updateRow(IDS[j]);
+        variantCounts[IDS[j]] = {};
+        freeJubilaeumCount[IDS[j]] = 0;
+        refreshRowMode(IDS[j]);
+      }
+      pfandReturns = 0;
+      updatePfandReturnDisplay();
+      document.getElementById('receivedInput').value = '';
+      updateQuickCashActive();
+      updateTotal();
     });
   });
 
@@ -2149,9 +2464,11 @@
     }
     var html = '';
     for(var i = 0; i < DRINKS.length; i++){
+      var stockVal = (DRINKS[i].stock === undefined || DRINKS[i].stock === null) ? '' : DRINKS[i].stock;
       html +=
-        '<div class="variantEditRow">' +
+        '<div class="variantEditRow drinkManageRow">' +
           '<input type="text" class="drinkRenameInput" data-id="' + DRINKS[i].id + '" value="' + DRINKS[i].name + '">' +
+          '<input type="number" class="drinkStockInput" data-id="' + DRINKS[i].id + '" value="' + stockVal + '" placeholder="Bestand" min="0">' +
           '<button type="button" class="variantDeleteBtn" data-id="' + DRINKS[i].id + '">✕</button>' +
         '</div>';
     }
@@ -2171,6 +2488,19 @@
           var row = document.querySelector('.row[data-id="' + id + '"] .name');
           if(row) row.textContent = newName;
         }
+      });
+    }
+
+    var stockInputs = listEl6.querySelectorAll('.drinkStockInput');
+    for(var s = 0; s < stockInputs.length; s++){
+      stockInputs[s].addEventListener('change', function(){
+        var id = this.getAttribute('data-id');
+        var drink = DRINKS.find(function(d){ return d.id === id; });
+        if(!drink) return;
+        var val = this.value.trim();
+        drink.stock = val === '' ? null : Math.max(0, parseInt(val, 10) || 0);
+        saveDrinkList();
+        refreshStockWarning(id);
       });
     }
 
@@ -2209,11 +2539,92 @@
     }
   }
 
-  drinksManageBtn.addEventListener('click', function(e){
+  // Verkaufsstatistik: Umsatzanteile + Verkaufsverlauf nach Uhrzeit
+  var statsBtn = document.getElementById('statsBtn');
+  var statsOverlayEl = document.getElementById('statsOverlay');
+
+  function renderStatsShare(){
+    var container = document.getElementById('statsShareList');
+    var rows = [];
+    var totalUmsatz = 0;
+    for(var i = 0; i < PRICE_IDS.length; i++){
+      var id = PRICE_IDS[i];
+      var umsatz = (totals[id] || 0) * getPrice(id);
+      rows.push({ id: id, name: NAMES[id], umsatz: umsatz, qty: totals[id] || 0 });
+      totalUmsatz += umsatz;
+    }
+    rows.sort(function(a, b){ return b.umsatz - a.umsatz; });
+
+    if(totalUmsatz === 0){
+      container.innerHTML = '<div class="statsEmpty">Noch keine Verkäufe erfasst</div>';
+      return;
+    }
+
+    var html = '';
+    for(var r = 0; r < rows.length; r++){
+      if(rows[r].qty === 0) continue;
+      var pct = Math.round((rows[r].umsatz / totalUmsatz) * 100);
+      html +=
+        '<div class="statsShareRow">' +
+          '<span class="statsShareName">' + rows[r].name + '</span>' +
+          '<div class="statsShareBarTrack"><div class="statsShareBarFill" style="width:' + pct + '%"></div></div>' +
+          '<span class="statsSharePercent">' + pct + '%</span>' +
+        '</div>';
+    }
+    container.innerHTML = html || '<div class="statsEmpty">Noch keine Verkäufe erfasst</div>';
+  }
+
+  function renderStatsHourly(){
+    var container = document.getElementById('statsHourlyList');
+    container.innerHTML = '<div class="statsEmpty">Lade…</div>';
+
+    get(ref(db, 'stats/hourlyLog')).then(function(snapshot){
+      var data = snapshot.val() || {};
+      var buckets = {}; // "14:00" -> Summe
+      for(var key in data){
+        var entry = data[key];
+        var d = new Date(entry.time);
+        var hourLabel = String(d.getHours()).padStart(2, '0') + ':00';
+        buckets[hourLabel] = (buckets[hourLabel] || 0) + (entry.qty || 0);
+      }
+      var labels = Object.keys(buckets).sort();
+      if(labels.length === 0){
+        container.innerHTML = '<div class="statsEmpty">Noch keine Verkäufe erfasst</div>';
+        return;
+      }
+      var maxQty = Math.max.apply(null, labels.map(function(l){ return buckets[l]; }));
+      var html = '';
+      for(var i = 0; i < labels.length; i++){
+        var qty = buckets[labels[i]];
+        var pct = maxQty > 0 ? Math.round((qty / maxQty) * 100) : 0;
+        html +=
+          '<div class="statsHourlyRow">' +
+            '<span class="statsHourlyLabel">' + labels[i] + ' Uhr</span>' +
+            '<div class="statsHourlyBarTrack"><div class="statsHourlyBarFill" style="width:' + pct + '%"></div></div>' +
+            '<span class="statsHourlyCount">' + qty + '</span>' +
+          '</div>';
+      }
+      container.innerHTML = html;
+    }).catch(function(err){
+      console.error('Fehler beim Laden des Verkaufsverlaufs:', err);
+      container.innerHTML = '<div class="statsEmpty">Verlauf konnte nicht geladen werden</div>';
+    });
+  }
+
+  statsBtn.addEventListener('click', function(e){
     e.preventDefault();
-    renderDrinksManageList();
+    renderStatsShare();
+    renderStatsHourly();
     settingsOverlay.classList.remove('open');
-    drinksManageOverlay.classList.add('open');
+    statsOverlayEl.classList.add('open');
+  });
+
+  document.getElementById('statsCloseBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    statsOverlayEl.classList.remove('open');
+  });
+  statsOverlayEl.addEventListener('click', function(e){
+    if(e.target === statsOverlayEl) statsOverlayEl.classList.remove('open');
   });
 
   document.getElementById('drinksManageCloseBtn').addEventListener('click', function(e){
@@ -2231,7 +2642,7 @@
     if(!name) return;
 
     var id = slugify(name);
-    var newDrink = { id: id, name: name, price: 1.00 };
+    var newDrink = { id: id, name: name, price: 1.00, stock: null };
     DRINKS.push(newDrink);
     PRICE_IDS = DRINKS.map(function(d){ return d.id; });
     IDS = PRICE_IDS.slice();
