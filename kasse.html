@@ -1087,7 +1087,7 @@
   <div class="schnapszahlBox">
     <div class="schnapszahlEmoji">🎉</div>
     <div class="schnapszahlText" id="schnapszahlText">111. Bier verkauft!</div>
-    <button type="button" class="btn schnapszahlOkBtn" id="schnapszahlOkBtn">Super!</button>
+    <button type="button" class="btn schnapszahlOkBtn" id="schnapszahlOkBtn">Verstanden, gratis abgezogen</button>
   </div>
 </div>
 
@@ -1299,23 +1299,7 @@
     if(!row) return;
     var soldEl = row.querySelector('[data-role="sold"] b');
     if(!soldEl) return;
-    var qty = totals[id];
-    soldEl.textContent = qty;
-    checkSchnapszahl(id, qty);
-  }
-
-  // Prüft, ob eine "Schnapszahl" (111, 222, 333, ...) erreicht wurde, und zeigt kurz eine Info an
-  var lastSchnapszahlShown = {}; // verhindert Mehrfachanzeige, falls updateSold mehrmals mit gleichem Wert läuft
-  function isSchnapszahl(n){
-    if(n < 111) return false;
-    var s = String(n);
-    return s.split('').every(function(ch){ return ch === s[0]; });
-  }
-  function checkSchnapszahl(id, qty){
-    if(!isSchnapszahl(qty)) return;
-    if(lastSchnapszahlShown[id] === qty) return; // schon gezeigt für diesen Wert
-    lastSchnapszahlShown[id] = qty;
-    showSchnapszahlPopup(qty + '. ' + (NAMES[id] || id) + ' verkauft! 🎉');
+    soldEl.textContent = totals[id];
   }
 
   // Schnapszahl-Overlay: muss aktiv bestätigt werden, mit Warteschlange falls mehrere kurz hintereinander auftreten
@@ -1359,8 +1343,10 @@
     var itemCount = 0;
     for(var i = 0; i < PRICE_IDS.length; i++){
       var id = PRICE_IDS[i];
-      sum += counts[id] * getPrice(id);
-      itemCount += counts[id];
+      var qty = counts[id];
+      var freeQty = Math.min(freeJubilaeumCount[id] || 0, qty);
+      sum += (qty - freeQty) * getPrice(id);
+      itemCount += qty;
     }
     var pfandQty = itemCount - pfandReturns;
     sum += pfandQty * getPfandPreis();
@@ -1394,15 +1380,45 @@
     changeEl.classList.toggle('neg', change < 0);
   }
 
+  // Merkt sich, wie viele "Gratis-Jubiläumsstücke" im AKTUELLEN Bon je Getränk enthalten sind
+  var freeJubilaeumCount = {};
+
+  function isSchnapszahl(n){
+    if(n < 111) return false;
+    var s = String(n);
+    return s.split('').every(function(ch){ return ch === s[0]; });
+  }
+
   function handleStep(id, action, variant){
     if(action === 'plus'){
+      // Vorausschauend prüfen: Wäre DIESES Stück (das nächste in Reihenfolge) ein Jubiläums-Stück?
+      var nextPosition = (totals[id] || 0) + counts[id] + 1;
+      var willBeFree = isSchnapszahl(nextPosition);
+
       counts[id]++;
       if(variant){
         variantCounts[id][variant] = (variantCounts[id][variant] || 0) + 1;
       }
+      if(willBeFree){
+        freeJubilaeumCount[id] = (freeJubilaeumCount[id] || 0) + 1;
+      }
+      updateRow(id);
+      updateTotal();
+      refreshRowMode(id);
+
+      if(willBeFree){
+        showSchnapszahlPopup(nextPosition + '. ' + (NAMES[id] || id) + ' ist GRATIS! 🎉');
+        return; // Popup zeigt sich blockierend; restlicher Ablauf (unten) übersprungen, da bereits aktualisiert
+      }
+      return;
     }
     if(action === 'minus'){
       if(counts[id] > 0){
+        // Falls das zurückgenommene Stück ein Gratis-Jubiläumsstück war, Markierung mit zurücknehmen
+        var positionBeingRemoved = (totals[id] || 0) + counts[id];
+        if(isSchnapszahl(positionBeingRemoved) && freeJubilaeumCount[id] > 0){
+          freeJubilaeumCount[id]--;
+        }
         counts[id]--;
         if(variant && variantCounts[id][variant] > 0){
           variantCounts[id][variant]--;
@@ -1813,6 +1829,7 @@
       counts[IDS[j]] = 0;
       updateRow(IDS[j]);
       variantCounts[IDS[j]] = {};
+      freeJubilaeumCount[IDS[j]] = 0;
       refreshRowMode(IDS[j]);
     }
     pfandReturns = 0;
@@ -1879,6 +1896,7 @@
         counts[IDS[j]] = 0;
         updateRow(IDS[j]);
         variantCounts[IDS[j]] = {};
+      freeJubilaeumCount[IDS[j]] = 0;
         refreshRowMode(IDS[j]);
       }
       pfandReturns = 0;
@@ -2169,6 +2187,7 @@
           delete totals[id];
           delete variantDefs[id];
           delete variantCounts[id];
+          delete freeJubilaeumCount[id];
           delete variantTotals[id];
           delete NAMES[id];
           remove(ref(db, 'stats/totals/' + id));
@@ -2219,6 +2238,7 @@
     totals[id] = 0;
     variantDefs[id] = [];
     variantCounts[id] = {};
+    freeJubilaeumCount[id] = 0;
     variantTotals[id] = {};
     NAMES[id] = name;
     saveDrinkList();
