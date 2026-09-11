@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.2 - Bugfix: "Getränke verwalten" ließ sich nicht öffnen (Klick-Handler war beim
+         Einbau der Statistik-Funktion versehentlich verloren gegangen).
   v1.1 - Bon-Vorschau vor dem Abschicken, Verkaufsstatistik-Übersicht (Umsatzanteile
          + Verlauf nach Uhrzeit), Bestandswarnung pro Getränk, "Event komplett
          zurücksetzen", Versionsnummer eingeführt.
@@ -1165,7 +1167,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.1</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.2</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -2538,6 +2540,13 @@
       });
     }
   }
+
+  drinksManageBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    renderDrinksManageList();
+    settingsOverlay.classList.remove('open');
+    drinksManageOverlay.classList.add('open');
+  });
 
   // Verkaufsstatistik: Umsatzanteile + Verkaufsverlauf nach Uhrzeit
   var statsBtn = document.getElementById('statsBtn');
