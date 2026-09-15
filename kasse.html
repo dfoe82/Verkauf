@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.5 - PIN ändern: "App-PIN ändern" und "Einstellungen-PIN ändern" im ⚙-Menü ergänzt
+         (jeweils alte PIN zur Bestätigung nötig). Beim Ändern der App-PIN wird die
+         verschlüsselt gespeicherte Firebase-Konfiguration automatisch mit dem neuen
+         Schlüssel neu verschlüsselt, damit sie nicht unlesbar wird.
   v1.4 - Firebase-Konfiguration (API-Key, Login-E-Mail/Passwort etc.) wird jetzt selbst im
          Einstellungen-Bereich eingetragen statt fest im Code zu stehen. Wird mit AES-GCM
          verschlüsselt (Schlüssel = App-PIN) lokal gespeichert. Datei-Export/-Import für
@@ -1156,6 +1160,17 @@
     padding: 24px;
   }
   #settingsPinOverlay.open{ display:flex; }
+
+  #changePinOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.75);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:350;
+    padding: 24px;
+  }
+  #changePinOverlay.open{ display:flex; }
   .pinLockBox{
     background: var(--chalk-bg-2);
     border: 1px solid var(--line);
@@ -1316,7 +1331,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.4</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.5</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -1332,7 +1347,23 @@
       <button type="button" class="btn secondary settingsItem" id="variantsBtn" style="grid-column: 1 / -1;">Varianten verwalten</button>
       <button type="button" class="btn secondary settingsItem" id="statsBtn" style="grid-column: 1 / -1;">Verkaufsstatistik</button>
       <button type="button" class="btn secondary settingsItem" id="firebaseConfigBtn" style="grid-column: 1 / -1;">Firebase-Konfiguration</button>
+      <button type="button" class="btn secondary settingsItem" id="changeAppPinBtn">App-PIN ändern</button>
+      <button type="button" class="btn secondary settingsItem" id="changeSettingsPinBtn">Einstellungen-PIN ändern</button>
       <button type="button" class="btn secondary settingsItem cancelBtn" id="fullEventResetBtn" style="grid-column: 1 / -1;">Event komplett zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<div id="changePinOverlay">
+  <div class="pinLockBox">
+    <div class="pinLockIcon">🔑</div>
+    <div class="pinLockTitle" id="changePinTitle">PIN ändern</div>
+    <div class="pinLockSubtitle" id="changePinSubtitle"></div>
+    <input type="password" id="changePinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
+    <div class="pinLockError" id="changePinError"></div>
+    <div class="confirmActions">
+      <button type="button" class="btn secondary" id="changePinCancelBtn">Abbrechen</button>
+      <button type="button" class="btn pinLockOkBtn" id="changePinOkBtn">Weiter</button>
     </div>
   </div>
 </div>
@@ -2383,6 +2414,158 @@
   settingsOverlay.addEventListener('click', function(e){
     if(e.target === settingsOverlay) settingsOverlay.classList.remove('open');
   });
+
+  // --- PIN ändern (App-weite PIN und Einstellungen-PIN) ---
+  var changePinOverlay = document.getElementById('changePinOverlay');
+  var changePinTitleEl = document.getElementById('changePinTitle');
+  var changePinSubtitleEl = document.getElementById('changePinSubtitle');
+  var changePinInputEl = document.getElementById('changePinInput');
+  var changePinErrorEl = document.getElementById('changePinError');
+  var changePinOkBtn = document.getElementById('changePinOkBtn');
+
+  var changePinTarget = null; // 'app' oder 'settings'
+  var changePinStep = 'old';  // 'old' -> 'new1' -> 'new2'
+  var changePinOldValue = '';
+  var changePinNewFirst = '';
+
+  var APP_PIN_LS_KEY = 'appPinHash';
+
+  function simpleHashGeneric(str){
+    var hash = 0;
+    for(var i = 0; i < str.length; i++){
+      hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    return String(hash);
+  }
+
+  function renderChangePin(){
+    changePinInputEl.value = '';
+    changePinErrorEl.textContent = '';
+    var targetLabel = changePinTarget === 'app' ? 'App-PIN' : 'Einstellungen-PIN';
+    if(changePinStep === 'old'){
+      changePinTitleEl.textContent = targetLabel + ' ändern';
+      changePinSubtitleEl.textContent = 'Gib zuerst die aktuelle ' + targetLabel + ' ein.';
+      changePinOkBtn.textContent = 'Weiter';
+    } else if(changePinStep === 'new1'){
+      changePinTitleEl.textContent = 'Neue ' + targetLabel;
+      changePinSubtitleEl.textContent = 'Gib die neue PIN (4–6 Ziffern) ein.';
+      changePinOkBtn.textContent = 'Weiter';
+    } else {
+      changePinTitleEl.textContent = 'Neue PIN bestätigen';
+      changePinSubtitleEl.textContent = 'Gib die neue PIN zur Bestätigung noch einmal ein.';
+      changePinOkBtn.textContent = 'PIN ändern';
+    }
+    requestAnimationFrame(function(){ changePinInputEl.focus(); });
+  }
+
+  function openChangePin(target){
+    changePinTarget = target;
+    changePinStep = 'old';
+    changePinOldValue = '';
+    changePinNewFirst = '';
+    settingsOverlay.classList.remove('open');
+    renderChangePin();
+    changePinOverlay.classList.add('open');
+  }
+
+  document.getElementById('changeAppPinBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    openChangePin('app');
+  });
+  document.getElementById('changeSettingsPinBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    openChangePin('settings');
+  });
+  document.getElementById('changePinCancelBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    changePinOverlay.classList.remove('open');
+  });
+
+  async function handleChangePinSubmit(){
+    var val = changePinInputEl.value.trim();
+    if(val.length < 4 || val.length > 6 || !/^[0-9]+$/.test(val)){
+      changePinErrorEl.textContent = 'Bitte 4–6 Ziffern eingeben.';
+      return;
+    }
+
+    if(changePinStep === 'old'){
+      var lsKey = changePinTarget === 'app' ? APP_PIN_LS_KEY : SETTINGS_PIN_KEY;
+      var storedHashVal = localStorageAvailable ? window.localStorage.getItem(lsKey) : null;
+      if(simpleHashGeneric(val) !== storedHashVal){
+        changePinErrorEl.textContent = 'Falsche PIN.';
+        changePinInputEl.value = '';
+        return;
+      }
+      changePinOldValue = val;
+      changePinStep = 'new1';
+      renderChangePin();
+      return;
+    }
+
+    if(changePinStep === 'new1'){
+      changePinNewFirst = val;
+      changePinStep = 'new2';
+      renderChangePin();
+      return;
+    }
+
+    // changePinStep === 'new2'
+    if(val !== changePinNewFirst){
+      changePinErrorEl.textContent = 'Stimmt nicht überein. Bitte nochmal von vorn.';
+      changePinStep = 'new1';
+      changePinNewFirst = '';
+      renderChangePin();
+      return;
+    }
+
+    // Neue PIN übernehmen
+    if(changePinTarget === 'settings'){
+      window.localStorage.setItem(SETTINGS_PIN_KEY, simpleHashGeneric(val));
+      changePinOverlay.classList.remove('open');
+      setFbConfigMsgSafe('Einstellungen-PIN wurde geändert.');
+      return;
+    }
+
+    // App-PIN ändern: zusätzlich die verschlüsselt gespeicherte Firebase-Config auf den neuen
+    // Schlüssel umziehen, sonst wird sie beim nächsten Start unlesbar
+    try {
+      var storedConfig = null;
+      var storedEncrypted = window.localStorage.getItem(FB_CONFIG_LS_KEY);
+      if(storedEncrypted){
+        storedConfig = await window.cryptoHelper.decryptObject(storedEncrypted, changePinOldValue);
+      }
+
+      window.localStorage.setItem(APP_PIN_LS_KEY, simpleHashGeneric(val));
+      window.appPinValue = val;
+
+      if(storedConfig){
+        var reEncrypted = await window.cryptoHelper.encryptObject(storedConfig, val);
+        window.localStorage.setItem(FB_CONFIG_LS_KEY, reEncrypted);
+      }
+
+      changePinOverlay.classList.remove('open');
+      alert('App-PIN wurde geändert.');
+    } catch(err){
+      console.error('Fehler beim Ändern der App-PIN:', err);
+      changePinErrorEl.textContent = 'Fehler: Firebase-Konfiguration konnte nicht umgeschlüsselt werden.';
+    }
+  }
+
+  changePinOkBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    handleChangePinSubmit();
+  });
+  changePinInputEl.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      handleChangePinSubmit();
+    }
+  });
+
+  function setFbConfigMsgSafe(text){
+    var el = document.getElementById('fbConfigMsg');
+    if(el){ el.textContent = text; el.classList.remove('error'); }
+  }
 
   // Spot-Auswahl (1-8)
   var spotBtns = document.querySelectorAll('.spotBtn');
