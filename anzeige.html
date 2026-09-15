@@ -199,9 +199,111 @@
     background: rgba(217,118,90,0.14);
     color: #d9765a;
   }
+
+  #pinLockOverlay{
+    position:fixed; inset:0;
+    background: var(--chalk-bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:500;
+    padding: 24px;
+  }
+  #pinLockOverlay.hidden{ display:none; }
+  .pinLockBox{
+    background: var(--chalk-bg-2);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 32px 24px;
+    max-width: 320px;
+    width:100%;
+    text-align:center;
+  }
+  .pinLockIcon{
+    font-size:40px;
+    margin-bottom:10px;
+  }
+  .pinLockTitle{
+    font-size:18px;
+    font-weight:700;
+    color: var(--chalk);
+    margin-bottom:6px;
+  }
+  .pinLockSubtitle{
+    font-size:12.5px;
+    color: var(--chalk-dim);
+    line-height:1.4;
+    margin-bottom:18px;
+    min-height:16px;
+  }
+  #pinLockInput{
+    width:100%;
+    background: rgba(236,230,214,0.08);
+    border:1px solid var(--line);
+    border-radius:10px;
+    color: var(--chalk);
+    font-size:24px;
+    text-align:center;
+    letter-spacing:8px;
+    padding:12px 10px;
+    font-family: inherit;
+    margin-bottom:10px;
+  }
+  .pinLockError{
+    font-size:12px;
+    color: var(--red);
+    min-height:16px;
+    margin-bottom:10px;
+  }
+  .btn.pinLockOkBtn{
+    width:100%;
+    padding:13px 8px;
+    font-size:14px;
+    border-radius:9px;
+    border:1px solid rgba(217,118,90,0.35);
+    background: rgba(236,230,214,0.05);
+    color: var(--amber);
+    border-color: var(--amber);
+    background: var(--amber);
+    color: #241a0c;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.2px;
+  }
+
+  #firebaseSetupOverlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.75);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:300;
+    padding: 24px;
+  }
+  #firebaseSetupOverlay.open{ display:flex; }
+  .fbConfigMsg{
+    font-size:12px;
+    min-height:16px;
+    text-align:center;
+    margin-bottom:10px;
+    color: var(--green);
+  }
+  .fbConfigMsg.error{ color: #d9765a; }
 </style>
 </head>
 <body>
+
+<div id="pinLockOverlay">
+  <div class="pinLockBox">
+    <div class="pinLockIcon">🔒</div>
+    <div class="pinLockTitle" id="pinLockTitle">PIN eingeben</div>
+    <div class="pinLockSubtitle" id="pinLockSubtitle"></div>
+    <input type="password" id="pinLockInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
+    <div class="pinLockError" id="pinLockError"></div>
+    <button type="button" class="btn pinLockOkBtn" id="pinLockOkBtn">Weiter</button>
+  </div>
+</div>
+
 <div id="app">
   <header>
     <h1>📋 Bestellungen</h1>
@@ -210,6 +312,19 @@
   </header>
   <div id="ordersList">
     <div class="ordersEmpty">Keine offenen Bestellungen</div>
+  </div>
+</div>
+
+<div id="firebaseSetupOverlay">
+  <div class="pinLockBox" style="max-width:360px; text-align:left;">
+    <div class="pinLockTitle" style="text-align:center;">Firebase-Konfiguration</div>
+    <div class="pinLockSubtitle" style="text-align:center;">
+      Importiere die Konfigurationsdatei, die du beim Einrichten der Kasse exportiert hast.
+      Alles wird verschlüsselt mit deiner App-PIN lokal auf diesem Gerät gespeichert.
+    </div>
+    <div class="fbConfigMsg" id="fbSetupMsg"></div>
+    <button type="button" class="btn pinLockOkBtn" id="fbSetupImportBtn" style="margin-bottom:8px;">Konfigurationsdatei importieren</button>
+    <input type="file" id="fbSetupImportInput" accept="application/json" style="display:none;">
   </div>
 </div>
 
@@ -223,24 +338,288 @@
   </div>
 </div>
 
+<script>
+  // --- Verschlüsselungs-Hilfsfunktionen (identisch zu kasse.html) ---
+  window.cryptoHelper = (function(){
+    var textEncoder = new TextEncoder();
+    var textDecoder = new TextDecoder();
+
+    function bufToBase64(buf){
+      var bytes = new Uint8Array(buf);
+      var binary = '';
+      for(var i = 0; i < bytes.length; i++){ binary += String.fromCharCode(bytes[i]); }
+      return btoa(binary);
+    }
+    function base64ToBuf(b64){
+      var binary = atob(b64);
+      var bytes = new Uint8Array(binary.length);
+      for(var i = 0; i < binary.length; i++){ bytes[i] = binary.charCodeAt(i); }
+      return bytes.buffer;
+    }
+
+    async function deriveKey(pin, saltBuf){
+      var pinKey = await crypto.subtle.importKey(
+        'raw', textEncoder.encode(pin), { name: 'PBKDF2' }, false, ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: saltBuf, iterations: 100000, hash: 'SHA-256' },
+        pinKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptObject(obj, pin){
+      var salt = crypto.getRandomValues(new Uint8Array(16));
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      var key = await deriveKey(pin, salt);
+      var plaintext = textEncoder.encode(JSON.stringify(obj));
+      var ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
+      return bufToBase64(salt) + '.' + bufToBase64(iv) + '.' + bufToBase64(ciphertext);
+    }
+
+    async function decryptObject(stored, pin){
+      var parts = stored.split('.');
+      if(parts.length !== 3) throw new Error('Ungültiges Format');
+      var salt = base64ToBuf(parts[0]);
+      var iv = base64ToBuf(parts[1]);
+      var ciphertext = base64ToBuf(parts[2]);
+      var key = await deriveKey(pin, salt);
+      var plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ciphertext);
+      return JSON.parse(textDecoder.decode(plaintext));
+    }
+
+    return { encryptObject: encryptObject, decryptObject: decryptObject };
+  })();
+
+  // --- PIN-Sperre für den App-Zugang (rein lokal, wird beim ersten Start selbst festgelegt) ---
+  // Nutzt denselben Speicher-Schlüssel wie kasse.html, damit eine gemeinsame PIN für beide Apps gilt.
+  (function(){
+    var LS_KEY = 'appPinHash';
+
+    function simpleHash(str){
+      var hash = 0;
+      for(var i = 0; i < str.length; i++){
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+      }
+      return String(hash);
+    }
+
+    var overlay = document.getElementById('pinLockOverlay');
+    var titleEl = document.getElementById('pinLockTitle');
+    var subtitleEl = document.getElementById('pinLockSubtitle');
+    var inputEl = document.getElementById('pinLockInput');
+    var errorEl = document.getElementById('pinLockError');
+    var okBtn = document.getElementById('pinLockOkBtn');
+
+    var localStorageAvailable = false;
+    try {
+      window.localStorage.setItem('__ls_test__', '1');
+      window.localStorage.removeItem('__ls_test__');
+      localStorageAvailable = true;
+    } catch(err){ localStorageAvailable = false; }
+
+    if(!localStorageAvailable){
+      overlay.classList.add('hidden');
+      return;
+    }
+
+    var storedHash = window.localStorage.getItem(LS_KEY);
+    var mode = storedHash ? 'verify' : 'setup-step1';
+    var firstPin = '';
+
+    function render(){
+      inputEl.value = '';
+      errorEl.textContent = '';
+      if(mode === 'setup-step1'){
+        titleEl.textContent = 'PIN festlegen';
+        subtitleEl.textContent = 'Beim ersten Start: Lege eine PIN (4–6 Ziffern) für den Zugang zu dieser App fest.';
+        okBtn.textContent = 'Weiter';
+      } else if(mode === 'setup-step2'){
+        titleEl.textContent = 'PIN bestätigen';
+        subtitleEl.textContent = 'Gib die PIN zur Bestätigung noch einmal ein.';
+        okBtn.textContent = 'Festlegen';
+      } else {
+        titleEl.textContent = 'PIN eingeben';
+        subtitleEl.textContent = 'Zugang zu dieser App ist gesperrt.';
+        okBtn.textContent = 'Entsperren';
+      }
+      inputEl.focus();
+    }
+
+    function handleSubmit(){
+      var val = inputEl.value.trim();
+      if(val.length < 4 || val.length > 6 || !/^[0-9]+$/.test(val)){
+        errorEl.textContent = 'Bitte 4–6 Ziffern eingeben.';
+        return;
+      }
+
+      if(mode === 'setup-step1'){
+        firstPin = val;
+        mode = 'setup-step2';
+        render();
+        return;
+      }
+
+      if(mode === 'setup-step2'){
+        if(val !== firstPin){
+          errorEl.textContent = 'Stimmt nicht überein. Bitte nochmal von vorn.';
+          mode = 'setup-step1';
+          firstPin = '';
+          render();
+          return;
+        }
+        window.localStorage.setItem(LS_KEY, simpleHash(val));
+        window.appPinValue = val;
+        overlay.classList.add('hidden');
+        document.dispatchEvent(new CustomEvent('appPinReady', { detail: { pin: val } }));
+        return;
+      }
+
+      // mode === 'verify'
+      if(simpleHash(val) === storedHash){
+        window.appPinValue = val;
+        overlay.classList.add('hidden');
+        document.dispatchEvent(new CustomEvent('appPinReady', { detail: { pin: val } }));
+      } else {
+        errorEl.textContent = 'Falsche PIN.';
+        inputEl.value = '';
+        inputEl.focus();
+      }
+    }
+
+    okBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      handleSubmit();
+    });
+    inputEl.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        handleSubmit();
+      }
+    });
+
+    render();
+  })();
+</script>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, remove, onValue, runTransaction }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getAuth, signInWithEmailAndPassword }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCi2tJ0RSBLFwmJWQzvCQvEzm3eTmH6Xm0",
-    authDomain: "verkaufen-9b895.firebaseapp.com",
-    databaseURL: "https://verkaufen-9b895-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "verkaufen-9b895",
-    storageBucket: "verkaufen-9b895.firebasestorage.app",
-    messagingSenderId: "604426578907",
-    appId: "1:604426578907:web:20ef95e71f0672fe0055fe"
-  };
+  // Firebase wird NICHT mehr sofort mit fest im Code stehenden Werten initialisiert.
+  // Stattdessen: die Config wird verschlüsselt (mit der App-PIN als Schlüssel) aus dem lokalen
+  // Speicher geladen, sobald die PIN erfolgreich eingegeben wurde.
+  var app = null;
+  var db = null;
+  var ordersRef = null;
+  var auth = null;
+  var firebaseReady = false;
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const ordersRef = ref(db, 'orders');
+  var FB_CONFIG_LS_KEY = 'fbConfigEncrypted';
+
+  async function loadStoredFirebaseConfig(pin){
+    var stored = null;
+    try { stored = window.localStorage.getItem(FB_CONFIG_LS_KEY); } catch(err){ return null; }
+    if(!stored) return null;
+    try {
+      return await window.cryptoHelper.decryptObject(stored, pin);
+    } catch(err){
+      console.error('Firebase-Konfiguration konnte nicht entschlüsselt werden:', err);
+      return null;
+    }
+  }
+
+  async function initFirebaseWithConfig(cfg){
+    try {
+      app = initializeApp({
+        apiKey: cfg.apiKey,
+        authDomain: cfg.authDomain,
+        databaseURL: cfg.databaseURL,
+        projectId: cfg.projectId,
+        storageBucket: cfg.storageBucket,
+        messagingSenderId: cfg.messagingSenderId,
+        appId: cfg.appId
+      });
+      db = getDatabase(app);
+      auth = getAuth(app);
+      ordersRef = ref(db, 'orders');
+
+      if(cfg.loginEmail && cfg.loginPassword){
+        await signInWithEmailAndPassword(auth, cfg.loginEmail, cfg.loginPassword);
+      }
+
+      firebaseReady = true;
+      wireFirebaseLiveData();
+      var setupOverlay = document.getElementById('firebaseSetupOverlay');
+      if(setupOverlay) setupOverlay.classList.remove('open');
+    } catch(err){
+      console.error('Firebase-Initialisierung fehlgeschlagen:', err);
+      firebaseReady = false;
+      var msgEl = document.getElementById('fbSetupMsg');
+      if(msgEl){
+        msgEl.textContent = 'Verbindung fehlgeschlagen — bitte Konfigurationsdatei prüfen.';
+        msgEl.classList.add('error');
+      }
+    }
+  }
+
+  async function initFirebaseWhenReady(pin){
+    var cfg = await loadStoredFirebaseConfig(pin);
+    if(cfg){
+      await initFirebaseWithConfig(cfg);
+    } else {
+      firebaseReady = false;
+      var setupOverlay = document.getElementById('firebaseSetupOverlay');
+      if(setupOverlay) setupOverlay.classList.add('open');
+    }
+  }
+
+  document.addEventListener('appPinReady', function(e){
+    initFirebaseWhenReady(e.detail.pin);
+  });
+
+  // Datei-Import für die Firebase-Konfiguration (von der Kasse exportierte .json-Datei)
+  document.getElementById('fbSetupImportBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    document.getElementById('fbSetupImportInput').click();
+  });
+
+  document.getElementById('fbSetupImportInput').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = async function(evt){
+      var msgEl = document.getElementById('fbSetupMsg');
+      try {
+        var cfg = JSON.parse(evt.target.result);
+        if(!window.appPinValue){
+          msgEl.textContent = 'Interner Fehler: App-PIN nicht verfügbar. Bitte Seite neu laden.';
+          msgEl.classList.add('error');
+          return;
+        }
+        var encrypted = await window.cryptoHelper.encryptObject(cfg, window.appPinValue);
+        window.localStorage.setItem(FB_CONFIG_LS_KEY, encrypted);
+        msgEl.textContent = 'Gespeichert. Verbinde…';
+        msgEl.classList.remove('error');
+        await initFirebaseWithConfig(cfg);
+        if(!firebaseReady){
+          msgEl.textContent = 'Verbindung fehlgeschlagen — bitte Datei prüfen.';
+          msgEl.classList.add('error');
+        }
+      } catch(err){
+        console.error(err);
+        msgEl.textContent = 'Datei konnte nicht gelesen werden (ungültiges Format).';
+        msgEl.classList.add('error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
 
   // Verkaufszähler zentral in Firebase korrigieren (nur beim Stornieren nötig — "Fertig" lässt die Zähler unverändert)
   function applyStatsDelta(itemCounts, itemVariants, sign){
@@ -386,26 +765,29 @@
   });
 
   var statusEl = document.getElementById('status');
+  statusEl.textContent = 'Warte auf Verbindung…';
 
-  onValue(ordersRef, function(snapshot){
-    statusEl.textContent = 'Live verbunden';
-    statusEl.classList.remove('offline');
+  function wireFirebaseLiveData(){
+    onValue(ordersRef, function(snapshot){
+      statusEl.textContent = 'Live verbunden';
+      statusEl.classList.remove('offline');
 
-    var data = snapshot.val() || {};
-    var list = [];
-    for(var key in data){
-      var o = data[key];
-      o.key = key;
-      if(o.spot >= minSpot && o.spot <= maxSpot){
-        list.push(o);
+      var data = snapshot.val() || {};
+      var list = [];
+      for(var key in data){
+        var o = data[key];
+        o.key = key;
+        if(o.spot >= minSpot && o.spot <= maxSpot){
+          list.push(o);
+        }
       }
-    }
-    list.sort(function(a, b){ return a.time - b.time; });
-    render(list);
-  }, function(error){
-    statusEl.textContent = 'Keine Verbindung';
-    statusEl.classList.add('offline');
-  });
+      list.sort(function(a, b){ return a.time - b.time; });
+      render(list);
+    }, function(error){
+      statusEl.textContent = 'Keine Verbindung';
+      statusEl.classList.add('offline');
+    });
+  }
 
   // Bildschirm bleibt an, solange die Anzeige läuft
   if('wakeLock' in navigator){
