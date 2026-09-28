@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.11 - "Gesamt"-Bereich in der Höhe deutlich verkleinert: Die Bargeld-Optionen (Erhalten/Rückgeld +
+          Schnellbeträge 10/20/50 /100 €) sind jetzt standardmäßig eingeklappt und werden erst per Tap
+          auf den neuen Button "Bar bezahlen" eingeblendet — analog zum "Mit PayPal bezahlen"-Button.
+          Bei Barzahlung mit Wechselgeldbedarf ist das ein Tap mehr, dafür bleibt bei Kartenzahlung oder
+          exakt passendem Betrag deutlich mehr Platz für die Getränkeliste sichtbar. Das Bargeld-Feld
+          klappt automatisch wieder zu und der eingegebene Betrag wird zurückgesetzt, sobald ein Bon
+          abgeschickt oder verworfen wird.
   v1.10 - Navigation in den Einstellungen korrigiert: Schließen einer Einstellungen-Unterseite (Pfand-,
           PayPal- und Firebase-Konfiguration, Getränke/Artikel verwalten, Varianten verwalten und
           bearbeiten, Statistik, PIN ändern) per ✕ oder Tippen außerhalb führt jetzt wieder zurück zur
@@ -123,9 +130,16 @@
   }
   #totalValue.neg{ color: var(--red); }
 
-  #totalPaypalBtn{
+  #totalActionsRow{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin-top:6px;
+    flex-wrap:wrap;
+  }
+  #totalPaypalBtn, #cashToggleBtn{
     display:none;
-    margin: 6px auto 0;
+    margin:0;
     padding: 6px 16px;
     border-radius:20px;
     border:1px solid rgba(227,160,74,0.5);
@@ -135,7 +149,13 @@
     font-weight:700;
     font-family: inherit;
   }
-  #totalPaypalBtn:active{ background: rgba(227,160,74,0.22); transform:scale(0.96); }
+  #cashToggleBtn{ display:inline-block; }
+  #cashToggleBtn.active{ background: var(--amber); border-color: var(--amber); color: #241a0c; }
+  #totalPaypalBtn:active, #cashToggleBtn:active{ background: rgba(227,160,74,0.22); transform:scale(0.96); }
+  #cashToggleBtn.active:active{ background: var(--amber); }
+
+  #cashPanel{ display:none; }
+  #cashPanel.open{ display:block; }
 
   #changeRow{
     display:flex;
@@ -1428,17 +1448,22 @@
   <div id="totalBar">
     <div class="label">Gesamt</div>
     <div id="totalValue">0,00 €</div>
-    <button type="button" id="totalPaypalBtn" style="display:none;">Mit PayPal bezahlen</button>
-    <div id="changeRow" class="empty">
-      <span>Erhalten:</span>
-      <input type="number" id="receivedInput" step="0.50" min="0" inputmode="decimal" placeholder="0,00">
-      <span>€ → Rückgeld: <span id="changeValue">0,00 €</span></span>
+    <div id="totalActionsRow">
+      <button type="button" id="cashToggleBtn">Bar bezahlen</button>
+      <button type="button" id="totalPaypalBtn" style="display:none;">Mit PayPal bezahlen</button>
     </div>
-    <div id="quickCashRow">
-      <button type="button" class="quickCashBtn" data-amount="10">10 €</button>
-      <button type="button" class="quickCashBtn" data-amount="20">20 €</button>
-      <button type="button" class="quickCashBtn" data-amount="50">50 €</button>
-      <button type="button" class="quickCashBtn" data-amount="100">100 €</button>
+    <div id="cashPanel">
+      <div id="changeRow" class="empty">
+        <span>Erhalten:</span>
+        <input type="number" id="receivedInput" step="0.50" min="0" inputmode="decimal" placeholder="0,00">
+        <span>€ → Rückgeld: <span id="changeValue">0,00 €</span></span>
+      </div>
+      <div id="quickCashRow">
+        <button type="button" class="quickCashBtn" data-amount="10">10 €</button>
+        <button type="button" class="quickCashBtn" data-amount="20">20 €</button>
+        <button type="button" class="quickCashBtn" data-amount="50">50 €</button>
+        <button type="button" class="quickCashBtn" data-amount="100">100 €</button>
+      </div>
     </div>
     <div id="spotRow">
       <span class="spotLabel">Spot:</span>
@@ -1498,7 +1523,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.10</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.11</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -2770,6 +2795,23 @@
   }
 
   var totalPaypalBtnEl = document.getElementById('totalPaypalBtn');
+  var cashToggleBtnEl = document.getElementById('cashToggleBtn');
+  var cashPanelEl = document.getElementById('cashPanel');
+
+  function closeCashPanel(){
+    cashPanelEl.classList.remove('open');
+    cashToggleBtnEl.classList.remove('active');
+  }
+
+  cashToggleBtnEl.addEventListener('click', function(e){
+    e.preventDefault();
+    var opening = !cashPanelEl.classList.contains('open');
+    cashPanelEl.classList.toggle('open', opening);
+    cashToggleBtnEl.classList.toggle('active', opening);
+    if(opening){
+      document.getElementById('receivedInput').focus();
+    }
+  });
 
   function updateTotal(){
     var sum = 0;
@@ -3611,6 +3653,7 @@
     }
     resetPfandReturns();
     document.getElementById('receivedInput').value = '';
+    closeCashPanel();
     updateQuickCashActive();
     updateTotal();
   }
@@ -3783,6 +3826,7 @@
       }
       resetPfandReturns();
       document.getElementById('receivedInput').value = '';
+      closeCashPanel();
       updateQuickCashActive();
       updateTotal();
     });
@@ -3822,6 +3866,7 @@
       }
       resetPfandReturns();
       document.getElementById('receivedInput').value = '';
+      closeCashPanel();
     updateQuickCashActive();
       updateTotal();
     });
