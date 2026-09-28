@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.8 - Mehrere Pfand-Arten möglich (z.B. Becher, Tasse, Teller) mit je eigenem Preis, konfigurierbar
+         unter "Pfand-Konfiguration". Jedes Getränk kann unter "Getränke verwalten" einer Pfand-Art
+         zugeordnet werden (oder "kein Pfand"). Die Pfand-Leiste zeigt jetzt eine Zeile pro genutzter
+         Pfand-Art mit eigener Rückgabe-Zählung. "gesamt" heißt jetzt "im Umlauf" und zählt wirklich
+         nur die Differenz aus insgesamt verkauften und insgesamt zurückgegebenen Stück (kumulativ,
+         geräteübergreifend synchronisiert) statt aller jemals verkauften Getränke. Reine
+         Pfand-Rückgabe ohne Neukauf (z.B. Kunde bringt nur Becher zurück) kann jetzt ebenfalls über
+         "Bestellung abschicken" eingebucht werden.
+  v1.7 - Getränkeliste auf 2 Seiten aufgeteilt (Tab "Seite 1"/"Seite 2" oberhalb der Getränke),
+         damit auf dem iPhone alles ohne Scrollen passt. Pfand steht jetzt fest oberhalb der
+         Getränkeliste und ist auf beiden Seiten immer ohne Scrollen sichtbar. Standardmäßig
+         wird die aktuelle Reihenfolge automatisch hälftig aufgeteilt; unter "Getränke verwalten"
+         lässt sich pro Getränk per Klick auf "Seite 1"/"Seite 2" die Seite manuell ändern.
   v1.6 - PayPal-Zahloption ergänzt: konfigurierbare PayPal.me-Adresse im Einstellungen-Bereich
          ("PayPal-Konfiguration"). Nach dem Abschicken einer Bestellung werden ein "Mit PayPal
          bezahlen"-Button und ein passender QR-Code angezeigt (Betrag automatisch vorausgefüllt).
@@ -185,6 +198,80 @@
     flex-direction:column;
   }
 
+  /* ---- Pfand: immer sichtbar, fest oberhalb der scrollbaren Getränkeliste ---- */
+  #pfandBar{
+    flex-shrink:0;
+    padding: 6px 8px 0;
+  }
+  /* Kompakte, einzeilige Variante nur für die fixe Pfand-Leiste (statt der gestapelten Kachel) */
+  #pfandBar .row.pfand{
+    margin:0;
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding: 6px 10px;
+    min-height:0;
+  }
+  #pfandBar .row.pfand .info{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:0;
+    flex-shrink:0;
+  }
+  #pfandBar .row.pfand .name{
+    font-size:12px;
+  }
+  #pfandBar .row.pfand .price{
+    font-size:10px;
+  }
+  #pfandBar .pfandAutoLine{
+    display:none;
+  }
+  #pfandBar .row.pfand .counter{
+    flex-shrink:0;
+    gap:10px;
+  }
+  #pfandBar .row.pfand .stepper{
+    width:34px; height:34px;
+    font-size:18px;
+  }
+  #pfandBar #pfandReturnQty{
+    font-size:13px;
+    min-width:64px;
+    white-space:nowrap;
+  }
+  #pfandBar .row.pfand .sold{
+    flex-shrink:0;
+    margin-left:0;
+    font-size:10px;
+  }
+
+  /* ---- Seiten-Umschalter (Seite 1 / Seite 2) ---- */
+  #pageTabs{
+    flex-shrink:0;
+    display:flex;
+    gap:6px;
+    padding: 6px 8px 0;
+  }
+  .pageTabBtn{
+    flex:1;
+    padding:7px 0;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background: rgba(236,230,214,0.06);
+    color: var(--chalk-dim);
+    font-size:12.5px;
+    font-weight:700;
+    font-family: inherit;
+  }
+  .pageTabBtn.active{
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #241a0c;
+  }
+  .pageTabBtn:active{ transform: scale(0.97); }
+
   /* ---- Raster ---- */
   #list{
     flex:1;
@@ -205,6 +292,12 @@
     gap:6px;
     align-content:start;
   }
+  #drinkRows .row[data-page="2"]{ display:none; }
+  #drinkRows.show-page-2 .row[data-page="1"]{ display:none; }
+  #drinkRows.show-page-2 .row[data-page="2"]{ display:flex; }
+  /* Im Reihenfolge-Modus und beim Verwalten sollen immer beide Seiten sichtbar bleiben */
+  #list.reorder-mode #drinkRows .row[data-page="1"],
+  #list.reorder-mode #drinkRows .row[data-page="2"]{ display:flex; }
 
   .row{
     display:flex;
@@ -288,7 +381,7 @@
     white-space:nowrap;
     max-width:100%;
   }
-  #list.price-edit-mode .price input.priceInput{
+  #rightColumn.price-edit-mode .price input.priceInput{
     background: rgba(227,160,74,0.14);
     border-color: rgba(227,160,74,0.5);
   }
@@ -319,7 +412,7 @@
     -webkit-appearance: none;
     margin:0;
   }
-  #list.price-edit-mode .row.pfand .price input{
+  #rightColumn.price-edit-mode .row.pfand .price input{
     background: rgba(127,179,201,0.14);
     border-color: rgba(127,179,201,0.5);
   }
@@ -602,14 +695,14 @@
     padding: 13px 8px;
   }
 
-  #variantsOverlay, #variantsEditOverlay, #pickVariantOverlay, #drinksManageOverlay, #statsOverlay, #firebaseConfigOverlay, #paypalConfigOverlay{
+  #variantsOverlay, #variantsEditOverlay, #pickVariantOverlay, #drinksManageOverlay, #statsOverlay, #firebaseConfigOverlay, #paypalConfigOverlay, #pfandConfigOverlay{
     position:fixed; inset:0;
     background: rgba(0,0,0,0.6);
     display:none;
     align-items:flex-end;
     z-index:65;
   }
-  #variantsOverlay.open, #variantsEditOverlay.open, #pickVariantOverlay.open, #drinksManageOverlay.open, #statsOverlay.open, #firebaseConfigOverlay.open, #paypalConfigOverlay.open{ display:flex; }
+  #variantsOverlay.open, #variantsEditOverlay.open, #pickVariantOverlay.open, #drinksManageOverlay.open, #statsOverlay.open, #firebaseConfigOverlay.open, #paypalConfigOverlay.open, #pfandConfigOverlay.open{ display:flex; }
 
   .variantsHint{
     font-size:12px;
@@ -1328,23 +1421,16 @@
 
   <div id="rightColumn">
 
+  <div id="pfandBar"></div>
+
+  <div id="pageTabs">
+    <button type="button" class="pageTabBtn active" data-page="1">Seite 1</button>
+    <button type="button" class="pageTabBtn" data-page="2">Seite 2</button>
+  </div>
+
   <div id="list">
 
     <div id="drinkRows"></div>
-
-    <div class="row pfand" data-id="pfand">
-      <div class="info">
-        <div class="name">Pfand</div>
-        <div class="price">+ <input type="number" id="pfandPreis" disabled value="2.00" step="0.10" min="0" inputmode="decimal"> € / Stück</div>
-      </div>
-      <div class="pfandAutoLine">automatisch aus Getränken: <b id="pfandAutoQty">0</b> Stück</div>
-      <div class="counter">
-        <button type="button" class="stepper minus" id="pfandReturnMinus">−</button>
-        <div class="qty" id="pfandReturnQty">Rückgabe: 0</div>
-        <button type="button" class="stepper plus" id="pfandReturnPlus">+</button>
-      </div>
-      <div class="sold" data-role="sold">gesamt: <b id="pfandSoldTotal">0</b></div>
-    </div>
 
   </div>
 
@@ -1376,7 +1462,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.6</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.8</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -1388,7 +1474,8 @@
       <button type="button" class="btn secondary settingsItem" id="showAllBtn">Alle einblenden</button>
       <button type="button" class="btn secondary settingsItem" id="reorderBtn">Reihenfolge ändern</button>
       <button type="button" class="btn secondary settingsItem" id="priceEditBtn">Preise ändern</button>
-      <button type="button" class="btn secondary settingsItem" id="drinksManageBtn" style="grid-column: 1 / -1;">Getränke verwalten</button>
+      <button type="button" class="btn secondary settingsItem" id="pfandConfigBtn" style="grid-column: 1 / -1;">Pfand-Konfiguration</button>
+      <button type="button" class="btn secondary settingsItem" id="drinksManageBtn" style="grid-column: 1 / -1;">Artikel verwalten</button>
       <button type="button" class="btn secondary settingsItem" id="variantsBtn" style="grid-column: 1 / -1;">Varianten verwalten</button>
       <button type="button" class="btn secondary settingsItem" id="statsBtn" style="grid-column: 1 / -1;">Verkaufsstatistik</button>
       <button type="button" class="btn secondary settingsItem" id="firebaseConfigBtn" style="grid-column: 1 / -1;">Firebase-Konfiguration</button>
@@ -1483,10 +1570,25 @@
   </div>
 </div>
 
+<div id="pfandConfigOverlay">
+  <div class="settingsSheet">
+    <div class="settingsHeader">
+      <div class="settingsTitle">Pfand-Konfiguration</div>
+      <button type="button" class="settingsClose" id="pfandConfigCloseBtn">✕</button>
+    </div>
+    <div class="variantsHint">Pfand-Arten anlegen (z.B. Becher, Tasse, Teller) mit eigenem Preis. Welche Pfand-Art (falls überhaupt) zu einem Getränk automatisch dazu kommt, legst du unter "Artikel verwalten" fest. Mindestens eine Pfand-Art muss übrig bleiben.</div>
+    <div class="variantsEditList" id="pfandConfigList"></div>
+    <div class="variantsAddRow">
+      <input type="text" id="pfandTypeNewInput" placeholder="Neue Pfand-Art, z.B. Tasse">
+      <button type="button" class="btn" id="pfandTypeAddBtn">+</button>
+    </div>
+  </div>
+</div>
+
 <div id="drinksManageOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Getränke verwalten</div>
+      <div class="settingsTitle">Artikel verwalten</div>
       <button type="button" class="settingsClose" id="drinksManageCloseBtn">✕</button>
     </div>
     <div class="variantsHint">Getränke umbenennen, entfernen oder neue hinzufügen. Preise passt du separat über "Preise ändern" an.</div>
@@ -2298,6 +2400,47 @@
     lsSet('drinkList', JSON.stringify(DRINKS));
   }
 
+  // Pfand-Arten (z.B. Becher, Tasse, Teller) mit je eigenem Preis — rein lokal gespeichert.
+  // Jedes Getränk kann optional einer dieser Pfand-Arten zugeordnet werden (drink.pfandType).
+  var DEFAULT_PFAND_TYPES = [
+    { id:'becher', name:'Becher', price:2.00 }
+  ];
+  var PFAND_TYPES = DEFAULT_PFAND_TYPES;
+  var storedPfandTypes = lsGet('pfandTypes');
+  if(storedPfandTypes){
+    try {
+      var parsedPfandTypes = JSON.parse(storedPfandTypes);
+      var pfandTypesValid = Array.isArray(parsedPfandTypes) && parsedPfandTypes.length > 0 && parsedPfandTypes.every(function(p){
+        return p && typeof p.id === 'string' && p.id.length > 0 &&
+               typeof p.name === 'string' && p.name.length > 0 &&
+               typeof p.price === 'number' && !isNaN(p.price);
+      });
+      if(pfandTypesValid){ PFAND_TYPES = parsedPfandTypes; } else { PFAND_TYPES = DEFAULT_PFAND_TYPES; }
+    } catch(err){ PFAND_TYPES = DEFAULT_PFAND_TYPES; }
+  }
+  // Erstmaliger Start ohne gespeicherte Pfand-Arten: Default "Becher" (2,00 €), passend zum bisherigen
+  // fest verdrahteten Pfandpreis der Vorgängerversion.
+
+  function savePfandTypes(){
+    lsSet('pfandTypes', JSON.stringify(PFAND_TYPES));
+  }
+
+  function getPfandType(id){
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      if(PFAND_TYPES[i].id === id) return PFAND_TYPES[i];
+    }
+    return null;
+  }
+
+  // Welche Pfand-Art (falls überhaupt) für ein Getränk automatisch mitverkauft wird.
+  // Ohne eigene Zuweisung (drink.pfandType) gilt weiterhin die erste/einzige Pfand-Art (Abwärtskompatibilität
+  // zur bisherigen Version, in der jedes Getränk automatisch 1x Becher-Pfand ausgelöst hat).
+  function getDrinkPfandTypeId(drink){
+    if(drink.pfandType === null) return null; // Getränk hat explizit "kein Pfand"
+    if(typeof drink.pfandType === 'string' && getPfandType(drink.pfandType)) return drink.pfandType;
+    return PFAND_TYPES.length > 0 ? PFAND_TYPES[0].id : null;
+  }
+
   function slugify(name){
     var base = name.toLowerCase()
       .replace(/[äÄ]/g, 'ae').replace(/[öÖ]/g, 'oe').replace(/[üÜ]/g, 'ue').replace(/ß/g, 'ss')
@@ -2350,10 +2493,19 @@
     variantTotals[PRICE_IDS[vj]] = {};
   }
 
+  // Seite (1 oder 2), auf der ein Getränk angezeigt wird. Ohne eigene Zuweisung (drink.page) wird die
+  // Liste automatisch in der aktuellen Reihenfolge hälftig aufgeteilt: erste Hälfte -> Seite 1, Rest -> Seite 2.
+  function getDrinkPage(drink){
+    if(drink.page === 1 || drink.page === 2) return drink.page;
+    var idx = DRINKS.indexOf(drink);
+    var half = Math.ceil(DRINKS.length / 2);
+    return idx < half ? 1 : 2;
+  }
+
   // Getränke-Kacheln dynamisch erzeugen (statt fest im HTML zu stehen), damit Hinzufügen/Entfernen/Umbenennen möglich ist
   function drinkRowHtml(drink){
     return '' +
-      '<div class="row" data-id="' + drink.id + '">' +
+      '<div class="row" data-id="' + drink.id + '" data-page="' + getDrinkPage(drink) + '">' +
         '<div class="info">' +
           '<div class="name">' + drink.name + '</div>' +
           '<div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="' + drink.id + '" value="' + drink.price.toFixed(2) + '" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="' + drink.id + '"></span></div>' +
@@ -2380,6 +2532,50 @@
   }
 
   renderDrinkRows();
+
+  // Pfand-Zeilen dynamisch erzeugen: eine Zeile pro Pfand-Art (Becher, Tasse, Teller, ...)
+  function pfandRowHtml(pfandType){
+    return '' +
+      '<div class="row pfand" data-pfand-id="' + pfandType.id + '">' +
+        '<div class="info">' +
+          '<div class="name">' + pfandType.name + '</div>' +
+          '<div class="price">+ <span class="pfandPreisDisplay" data-pfand-price-id="' + pfandType.id + '">' + fmt(pfandType.price) + '</span> € / Stück</div>' +
+        '</div>' +
+        '<div class="counter">' +
+          '<button type="button" class="stepper minus pfandReturnMinus" data-pfand-id="' + pfandType.id + '">−</button>' +
+          '<div class="qty pfandReturnQty" data-pfand-id="' + pfandType.id + '">Rückgabe: 0</div>' +
+          '<button type="button" class="stepper plus pfandReturnPlus" data-pfand-id="' + pfandType.id + '">+</button>' +
+        '</div>' +
+        '<div class="sold pfandSoldTotal" data-role="sold" data-pfand-id="' + pfandType.id + '">im Umlauf: <b>0</b></div>' +
+      '</div>';
+  }
+
+  function renderPfandBar(){
+    var container = document.getElementById('pfandBar');
+    var html = '';
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      html += pfandRowHtml(PFAND_TYPES[i]);
+    }
+    container.innerHTML = html;
+    wirePfandReturnButtons();
+  }
+
+  renderPfandBar();
+
+  // Seiten-Umschalter (Seite 1 / Seite 2) oberhalb der Getränkeliste
+  var drinkRowsEl2 = document.getElementById('drinkRows');
+  var pageTabBtns = document.querySelectorAll('.pageTabBtn');
+  for(var pt = 0; pt < pageTabBtns.length; pt++){
+    pageTabBtns[pt].addEventListener('click', function(e){
+      e.preventDefault();
+      var page = this.getAttribute('data-page');
+      for(var j = 0; j < pageTabBtns.length; j++){ pageTabBtns[j].classList.remove('active'); }
+      this.classList.add('active');
+      drinkRowsEl2.classList.toggle('show-page-2', page === '2');
+      var listElNow = document.getElementById('list');
+      if(listElNow) listElNow.scrollTop = 0;
+    });
+  }
 
   function hasVariants(id){
     return variantDefs[id] && variantDefs[id].length > 0;
@@ -2440,18 +2636,24 @@
     return isNaN(v) ? 0 : v;
   }
 
-  function getPfandPreis(){
-    var v = parseFloat(document.getElementById('pfandPreis').value.replace(',', '.'));
-    return isNaN(v) ? 0 : v;
+  function getPfandPreisById(pfandId){
+    var t = getPfandType(pfandId);
+    return t ? t.price : 0;
   }
 
+  // Preis eines Getränks inkl. seiner zugeordneten Pfand-Art (falls vorhanden)
   function updateAllPriceWithPfand(){
-    var pfandPreis = getPfandPreis();
-    for(var i = 0; i < PRICE_IDS.length; i++){
-      var id = PRICE_IDS[i];
+    for(var i = 0; i < DRINKS.length; i++){
+      var drink = DRINKS[i];
+      var id = drink.id;
       var span = document.querySelector('.priceWithPfand[data-price-id="' + id + '"]');
       if(!span) continue;
-      var withPfand = getPrice(id) + pfandPreis;
+      var pfandId = getDrinkPfandTypeId(drink);
+      if(!pfandId){
+        span.textContent = '';
+        continue;
+      }
+      var withPfand = getPrice(id) + getPfandPreisById(pfandId);
       span.textContent = '(' + fmt(withPfand) + ' € inkl. Pfand)';
     }
   }
@@ -2508,31 +2710,88 @@
   });
 
   var currentTotal = 0;
-  var pfandReturns = 0;
+  var pfandReturns = {}; // Rückgabe für den aktuellen, noch offenen Bon, je Pfand-Art (wird bei Abschicken auf 0 gesetzt)
+  var pfandReturnsTotal = {}; // kumulative, geräteübergreifend synchronisierte Rückgaben je Pfand-Art seit letztem Reset
+  for(var pti = 0; pti < PFAND_TYPES.length; pti++){
+    pfandReturns[PFAND_TYPES[pti].id] = 0;
+    pfandReturnsTotal[PFAND_TYPES[pti].id] = 0;
+  }
+
+  function getPfandReturns(pfandId){ return pfandReturns[pfandId] || 0; }
+  function getPfandReturnsTotal(pfandId){ return pfandReturnsTotal[pfandId] || 0; }
+
+  // Wie viele Getränke im aktuellen Bon zu einer bestimmten Pfand-Art gehören
+  function getPfandAutoQty(pfandId){
+    var qty = 0;
+    for(var i = 0; i < DRINKS.length; i++){
+      var drink = DRINKS[i];
+      if(getDrinkPfandTypeId(drink) === pfandId){
+        qty += counts[drink.id] || 0;
+      }
+    }
+    return qty;
+  }
 
   function updateTotal(){
     var sum = 0;
-    var itemCount = 0;
     for(var i = 0; i < PRICE_IDS.length; i++){
       var id = PRICE_IDS[i];
       var qty = counts[id];
       var freeQty = Math.min(freeJubilaeumCount[id] || 0, qty);
       sum += (qty - freeQty) * getPrice(id);
-      itemCount += qty;
     }
-    var pfandQty = itemCount - pfandReturns;
-    sum += pfandQty * getPfandPreis();
+    for(var p = 0; p < PFAND_TYPES.length; p++){
+      var pfandId = PFAND_TYPES[p].id;
+      var autoQty = getPfandAutoQty(pfandId);
+      var pfandQty = autoQty - getPfandReturns(pfandId);
+      sum += pfandQty * getPfandPreisById(pfandId);
+    }
     currentTotal = sum;
     var el = document.getElementById('totalValue');
     el.textContent = fmt(sum) + ' €';
     el.classList.toggle('neg', sum < 0);
-    document.getElementById('pfandAutoQty').textContent = itemCount;
     updateChange();
   }
 
-  function updatePfandReturnDisplay(){
-    var el = document.getElementById('pfandReturnQty');
-    el.textContent = 'Rückgabe: ' + pfandReturns;
+  function updatePfandReturnDisplay(pfandId){
+    var el = document.querySelector('.pfandReturnQty[data-pfand-id="' + pfandId + '"]');
+    if(el) el.textContent = 'Rückgabe: ' + getPfandReturns(pfandId);
+  }
+
+  function updateAllPfandReturnDisplays(){
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      updatePfandReturnDisplay(PFAND_TYPES[i].id);
+    }
+  }
+
+  function resetPfandReturns(){
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      pfandReturns[PFAND_TYPES[i].id] = 0;
+    }
+    updateAllPfandReturnDisplays();
+  }
+
+  function wirePfandReturnButtons(){
+    var plusBtns = document.querySelectorAll('.pfandReturnPlus');
+    for(var i = 0; i < plusBtns.length; i++){
+      plusBtns[i].addEventListener('click', function(e){
+        e.preventDefault();
+        var pfandId = this.getAttribute('data-pfand-id');
+        pfandReturns[pfandId] = getPfandReturns(pfandId) + 1;
+        updatePfandReturnDisplay(pfandId);
+        updateTotal();
+      });
+    }
+    var minusBtns = document.querySelectorAll('.pfandReturnMinus');
+    for(var j = 0; j < minusBtns.length; j++){
+      minusBtns[j].addEventListener('click', function(e){
+        e.preventDefault();
+        var pfandId = this.getAttribute('data-pfand-id');
+        pfandReturns[pfandId] = Math.max(0, getPfandReturns(pfandId) - 1);
+        updatePfandReturnDisplay(pfandId);
+        updateTotal();
+      });
+    }
   }
 
   function updateChange(){
@@ -2640,12 +2899,28 @@
     setTimeout(function(){ statsSyncErrorShown = false; }, 15000);
   }
 
+  // "im Umlauf" je Pfand-Art = insgesamt verkaufte Stück (Getränke mit dieser Pfand-Art) minus insgesamt
+  // zurückgegebene Stück, jeweils kumulativ über alle abgeschickten Bons seit dem letzten Reset
+  // (geräteübergreifend synchronisiert).
   function updatePfandSoldTotal(){
-    var sum = 0;
-    for(var i = 0; i < IDS.length; i++){
-      sum += totals[IDS[i]];
+    // Verkaufte Menge je Pfand-Art aus den zentralen Getränke-Verkaufszählern (totals) ableiten
+    var soldByPfandType = {};
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      soldByPfandType[PFAND_TYPES[i].id] = 0;
     }
-    document.getElementById('pfandSoldTotal').textContent = sum;
+    for(var j = 0; j < DRINKS.length; j++){
+      var drink = DRINKS[j];
+      var pfandId = getDrinkPfandTypeId(drink);
+      if(!pfandId) continue;
+      if(soldByPfandType[pfandId] === undefined) continue; // Pfand-Art existiert nicht mehr
+      soldByPfandType[pfandId] += (totals[drink.id] || 0);
+    }
+    for(var p = 0; p < PFAND_TYPES.length; p++){
+      var id = PFAND_TYPES[p].id;
+      var imUmlauf = soldByPfandType[id] - getPfandReturnsTotal(id);
+      var el = document.querySelector('.pfandSoldTotal[data-pfand-id="' + id + '"] b');
+      if(el) el.textContent = imUmlauf;
+    }
   }
 
   function updateUmsatz(){
@@ -2734,13 +3009,8 @@
     refreshRowMode(PRICE_IDS[ri]);
   }
 
-  document.getElementById('pfandPreis').addEventListener('input', function(){
-    updateTotal();
-    updateAllPriceWithPfand();
-  });
-  document.getElementById('pfandPreis').addEventListener('click', function(e){
-    e.stopPropagation();
-  });
+  // Pfand-Preise werden jetzt über die Pfand-Konfiguration (Einstellungen) geändert, nicht mehr inline
+  // in der Pfand-Kachel selbst (siehe renderPfandConfigList / savePfandTypes weiter unten).
 
   function wirePriceInputs(){
     var priceInputs = document.querySelectorAll('.priceInput');
@@ -3182,6 +3452,16 @@
       updateUmsatz();
     });
 
+    // Live-Abo: kumulative Pfand-Rückgaben je Pfand-Art (für "im Umlauf"), von jedem Gerät aktuell gehalten
+    onValue(ref(db, 'stats/pfandReturnsTotal'), function(snapshot){
+      var data = snapshot.val() || {};
+      for(var i = 0; i < PFAND_TYPES.length; i++){
+        var id = PFAND_TYPES[i].id;
+        pfandReturnsTotal[id] = Number(data[id]) || 0;
+      }
+      updatePfandSoldTotal();
+    });
+
     // Live-Abo: zentrale Verkaufszähler je Variante
     onValue(ref(db, 'stats/variantTotals'), function(snapshot){
       var data = snapshot.val() || {};
@@ -3207,19 +3487,7 @@
     if(e.target === ordersOverlay) ordersOverlay.classList.remove('open');
   });
 
-  // Pfandrückgabe: + zählt zurückgegebene Becher (wird von der Summe abgezogen), - korrigiert Fehltipps
-  document.getElementById('pfandReturnPlus').addEventListener('click', function(e){
-    e.preventDefault();
-    pfandReturns++;
-    updatePfandReturnDisplay();
-    updateTotal();
-  });
-  document.getElementById('pfandReturnMinus').addEventListener('click', function(e){
-    e.preventDefault();
-    pfandReturns = Math.max(0, pfandReturns - 1);
-    updatePfandReturnDisplay();
-    updateTotal();
-  });
+  // Pfandrückgabe: siehe wirePfandReturnButtons() weiter oben (eine Zeile pro Pfand-Art, dynamisch erzeugt)
 
   // Baut die Zusammenfassung des aktuellen Bons (für Vorschau UND fürs eigentliche Abschicken)
   function buildOrderSummary(){
@@ -3280,6 +3548,19 @@
       showPaypalPayment(currentTotal);
     }
 
+    // Pfand-Rückgabe kumulativ synchronisieren (auch bei reiner Rückgabe ohne Neukauf), für "im Umlauf" —
+    // je Pfand-Art einzeln, da jede ihren eigenen zentralen Zähler in Firebase hat
+    for(var pt = 0; pt < PFAND_TYPES.length; pt++){
+      (function(pfandId, qty){
+        if(qty <= 0) return;
+        runTransaction(ref(db, 'stats/pfandReturnsTotal/' + pfandId), function(current){
+          return Number(current || 0) + qty;
+        }).catch(function(err){
+          showStatsSyncError(err);
+        });
+      })(PFAND_TYPES[pt].id, getPfandReturns(PFAND_TYPES[pt].id));
+    }
+
     for(var j = 0; j < IDS.length; j++){
       counts[IDS[j]] = 0;
       updateRow(IDS[j]);
@@ -3287,11 +3568,18 @@
       freeJubilaeumCount[IDS[j]] = 0;
       refreshRowMode(IDS[j]);
     }
-    pfandReturns = 0;
-    updatePfandReturnDisplay();
+    resetPfandReturns();
     document.getElementById('receivedInput').value = '';
     updateQuickCashActive();
     updateTotal();
+  }
+
+  function getTotalPfandReturns(){
+    var sum = 0;
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      sum += getPfandReturns(PFAND_TYPES[i].id);
+    }
+    return sum;
   }
 
   // "Bestellung abschicken": zeigt zuerst eine Vorschau, tatsächliches Abschicken erst nach Bestätigung
@@ -3299,8 +3587,24 @@
     e.preventDefault();
     var summary = buildOrderSummary();
 
+    if(!summary.hasItems && getTotalPfandReturns() === 0){
+      return; // wirklich nichts zu tun: kein Getränk im Bon und keine Pfand-Rückgabe
+    }
+
     if(!summary.hasItems){
-      return; // leerer Bon: nichts zu bestätigen, nichts zu tun
+      // Reine Pfand-Rückgabe ohne Neukauf (z.B. Kunde bringt nur Becher zurück): eigener, klarerer Hinweistext
+      var returnLines = [];
+      for(var i = 0; i < PFAND_TYPES.length; i++){
+        var qty = getPfandReturns(PFAND_TYPES[i].id);
+        if(qty > 0) returnLines.push(PFAND_TYPES[i].name + ': ' + qty + ' Stück');
+      }
+      var pfandOnlyText = 'Reine Pfand-Rückgabe (kein neues Getränk)\n\n' +
+        returnLines.join('\n') +
+        '\n\nGesamt: ' + fmt(currentTotal) + ' €';
+      showOrderPreview(pfandOnlyText, function(){
+        submitOrder(summary);
+      });
+      return;
     }
 
     var previewText = 'Spot ' + selectedSpot + ': ' + summary.itemsList.join(', ') +
@@ -3373,6 +3677,7 @@
     showConfirm('Wirklich alle Zähler (verkaufte Menge) für ALLE Geräte zurücksetzen?', 'Zurücksetzen', function(){
       set(ref(db, 'stats/totals'), {});
       set(ref(db, 'stats/variantTotals'), {});
+      set(ref(db, 'stats/pfandReturnsTotal'), {});
       // Lokale Anzeige aktualisiert sich automatisch über das Live-Abo (onValue), sobald Firebase bestätigt
     });
   });
@@ -3384,6 +3689,7 @@
     showConfirm('ACHTUNG: Wirklich das komplette Event zurücksetzen? Löscht alle Zähler, alle offenen Bestellungen und den Verkaufsverlauf – für ALLE Geräte. Das kann nicht rückgängig gemacht werden.', 'Event zurücksetzen', function(){
       set(ref(db, 'stats/totals'), {});
       set(ref(db, 'stats/variantTotals'), {});
+      set(ref(db, 'stats/pfandReturnsTotal'), {});
       set(ref(db, 'stats/hourlyLog'), {});
       set(ordersRef, {});
 
@@ -3395,8 +3701,7 @@
         freeJubilaeumCount[IDS[j]] = 0;
         refreshRowMode(IDS[j]);
       }
-      pfandReturns = 0;
-      updatePfandReturnDisplay();
+      resetPfandReturns();
       document.getElementById('receivedInput').value = '';
       updateQuickCashActive();
       updateTotal();
@@ -3435,8 +3740,7 @@
       freeJubilaeumCount[IDS[j]] = 0;
         refreshRowMode(IDS[j]);
       }
-      pfandReturns = 0;
-      updatePfandReturnDisplay();
+      resetPfandReturns();
       document.getElementById('receivedInput').value = '';
     updateQuickCashActive();
       updateTotal();
@@ -3466,6 +3770,7 @@
 
   // Reihenfolge ändern
   var listEl = document.getElementById('list');
+  var rightColumnEl = document.getElementById('rightColumn');
   var drinkRowsEl = document.getElementById('drinkRows');
   var reorderBtn = document.getElementById('reorderBtn');
 
@@ -3502,6 +3807,12 @@
       settingsOverlay.classList.remove('open');
     } else {
       rebuildDrinksOrderFromDom();
+      renderDrinkRows();
+      wireStepperButtons();
+      wirePriceInputs();
+      wireNameToggle();
+      wireMoveButtons();
+      updateAllPriceWithPfand();
     }
   });
 
@@ -3535,8 +3846,9 @@
   priceEditBtn.addEventListener('click', function(e){
     e.preventDefault();
     var active = listEl.classList.toggle('price-edit-mode');
+    rightColumnEl.classList.toggle('price-edit-mode', active);
     priceEditBtn.textContent = active ? 'Fertig' : 'Preise ändern';
-    var allPriceInputs = document.querySelectorAll('.priceInput, #pfandPreis');
+    var allPriceInputs = document.querySelectorAll('.priceInput');
     for(var i = 0; i < allPriceInputs.length; i++){
       allPriceInputs[i].disabled = !active;
     }
@@ -3672,6 +3984,133 @@
     }
   });
 
+  // Pfand-Konfiguration: Pfand-Arten (Becher, Tasse, Teller, ...) mit eigenem Preis anlegen/umbenennen/löschen
+  var pfandConfigBtn = document.getElementById('pfandConfigBtn');
+  var pfandConfigOverlay = document.getElementById('pfandConfigOverlay');
+
+  function renderPfandConfigList(){
+    var listEl7 = document.getElementById('pfandConfigList');
+    var html = '';
+    for(var i = 0; i < PFAND_TYPES.length; i++){
+      html +=
+        '<div class="variantEditRow pfandTypeRow">' +
+          '<input type="text" class="pfandTypeRenameInput" data-id="' + PFAND_TYPES[i].id + '" value="' + PFAND_TYPES[i].name + '">' +
+          '<input type="number" class="pfandTypePriceInput" data-id="' + PFAND_TYPES[i].id + '" value="' + PFAND_TYPES[i].price.toFixed(2) + '" step="0.10" min="0" inputmode="decimal">' +
+          '<button type="button" class="variantDeleteBtn pfandTypeDeleteBtn" data-id="' + PFAND_TYPES[i].id + '"' + (PFAND_TYPES.length <= 1 ? ' disabled' : '') + '>✕</button>' +
+        '</div>';
+    }
+    listEl7.innerHTML = html;
+
+    var renameInputs = listEl7.querySelectorAll('.pfandTypeRenameInput');
+    for(var r = 0; r < renameInputs.length; r++){
+      renameInputs[r].addEventListener('change', function(){
+        var id = this.getAttribute('data-id');
+        var newName = this.value.trim();
+        var pt = getPfandType(id);
+        if(!pt) return;
+        if(!newName){ this.value = pt.name; return; }
+        pt.name = newName;
+        savePfandTypes();
+        renderPfandBar();
+        renderDrinksManageList();
+      });
+    }
+
+    var priceInputs = listEl7.querySelectorAll('.pfandTypePriceInput');
+    for(var p = 0; p < priceInputs.length; p++){
+      priceInputs[p].addEventListener('input', function(){
+        var id = this.getAttribute('data-id');
+        var pt = getPfandType(id);
+        if(!pt) return;
+        var v = parseFloat(this.value.replace(',', '.'));
+        pt.price = isNaN(v) ? 0 : v;
+        savePfandTypes();
+        var display = document.querySelector('.pfandPreisDisplay[data-pfand-price-id="' + id + '"]');
+        if(display) display.textContent = fmt(pt.price);
+        updateAllPriceWithPfand();
+        updateTotal();
+      });
+    }
+
+    var delBtns = listEl7.querySelectorAll('.pfandTypeDeleteBtn');
+    for(var d = 0; d < delBtns.length; d++){
+      delBtns[d].addEventListener('click', function(e){
+        e.preventDefault();
+        if(PFAND_TYPES.length <= 1) return; // mindestens eine Pfand-Art muss übrig bleiben
+        var id = this.getAttribute('data-id');
+        var pt = getPfandType(id);
+        var name = pt ? pt.name : id;
+        showConfirm('"' + name + '" wirklich entfernen? Getränke mit dieser Pfand-Art bekommen dann keine automatische Pfand-Zuordnung mehr. Verkaufszähler/Rückgaben für diese Pfand-Art gehen dabei verloren.', 'Entfernen', function(){
+          PFAND_TYPES = PFAND_TYPES.filter(function(p2){ return p2.id !== id; });
+          // Getränke, die genau diese Pfand-Art hatten, auf "kein Pfand" setzen (statt automatisch auf eine andere umzuspringen)
+          for(var i = 0; i < DRINKS.length; i++){
+            if(DRINKS[i].pfandType === id) DRINKS[i].pfandType = null;
+          }
+          delete pfandReturns[id];
+          delete pfandReturnsTotal[id];
+          remove(ref(db, 'stats/pfandReturnsTotal/' + id));
+          savePfandTypes();
+          saveDrinkList();
+          renderPfandBar();
+          renderDrinksManageList();
+          updateAllPriceWithPfand();
+          updateTotal();
+        });
+      });
+    }
+  }
+
+  pfandConfigBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    renderPfandConfigList();
+    settingsOverlay.classList.remove('open');
+    pfandConfigOverlay.classList.add('open');
+  });
+  document.getElementById('pfandConfigCloseBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    pfandConfigOverlay.classList.remove('open');
+  });
+  pfandConfigOverlay.addEventListener('click', function(e){
+    if(e.target === pfandConfigOverlay) pfandConfigOverlay.classList.remove('open');
+  });
+
+  document.getElementById('pfandTypeAddBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    var input = document.getElementById('pfandTypeNewInput');
+    var name = input.value.trim();
+    if(!name) return;
+
+    var base = name.toLowerCase()
+      .replace(/[äÄ]/g, 'ae').replace(/[öÖ]/g, 'oe').replace(/[üÜ]/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if(!base) base = 'pfand';
+    var candidate = base;
+    var n = 2;
+    var existingIds = PFAND_TYPES.map(function(p){ return p.id; });
+    while(existingIds.indexOf(candidate) > -1){
+      candidate = base + '-' + n;
+      n++;
+    }
+
+    PFAND_TYPES.push({ id: candidate, name: name, price: 2.00 });
+    pfandReturns[candidate] = 0;
+    pfandReturnsTotal[candidate] = 0;
+    savePfandTypes();
+
+    input.value = '';
+    renderPfandBar();
+    renderPfandConfigList();
+    renderDrinksManageList();
+    updateTotal();
+  });
+
+  document.getElementById('pfandTypeNewInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      document.getElementById('pfandTypeAddBtn').click();
+    }
+  });
+
   // Getränke verwalten: umbenennen, löschen (mit Bestätigung), hinzufügen
   var drinksManageBtn = document.getElementById('drinksManageBtn');
   var drinksManageOverlay = document.getElementById('drinksManageOverlay');
@@ -3685,10 +4124,19 @@
     var html = '';
     for(var i = 0; i < DRINKS.length; i++){
       var stockVal = (DRINKS[i].stock === undefined || DRINKS[i].stock === null) ? '' : DRINKS[i].stock;
+      var pageVal = getDrinkPage(DRINKS[i]);
+      var currentPfandId = getDrinkPfandTypeId(DRINKS[i]);
+      var pfandOptions = '<option value=""' + (currentPfandId ? '' : ' selected') + '>kein Pfand</option>';
+      for(var pt2 = 0; pt2 < PFAND_TYPES.length; pt2++){
+        var sel = (PFAND_TYPES[pt2].id === currentPfandId) ? ' selected' : '';
+        pfandOptions += '<option value="' + PFAND_TYPES[pt2].id + '"' + sel + '>' + PFAND_TYPES[pt2].name + '</option>';
+      }
       html +=
         '<div class="variantEditRow drinkManageRow">' +
           '<input type="text" class="drinkRenameInput" data-id="' + DRINKS[i].id + '" value="' + DRINKS[i].name + '">' +
           '<input type="number" class="drinkStockInput" data-id="' + DRINKS[i].id + '" value="' + stockVal + '" placeholder="Bestand" min="0">' +
+          '<select class="drinkPfandSelect" data-id="' + DRINKS[i].id + '" title="Pfand-Art">' + pfandOptions + '</select>' +
+          '<button type="button" class="drinkPageBtn" data-id="' + DRINKS[i].id + '" title="Seite wechseln">Seite ' + pageVal + '</button>' +
           '<button type="button" class="variantDeleteBtn" data-id="' + DRINKS[i].id + '">✕</button>' +
         '</div>';
     }
@@ -3721,6 +4169,36 @@
         drink.stock = val === '' ? null : Math.max(0, parseInt(val, 10) || 0);
         saveDrinkList();
         refreshStockWarning(id);
+      });
+    }
+
+    var pfandSelects = listEl6.querySelectorAll('.drinkPfandSelect');
+    for(var ps = 0; ps < pfandSelects.length; ps++){
+      pfandSelects[ps].addEventListener('change', function(){
+        var id = this.getAttribute('data-id');
+        var drink = DRINKS.find(function(d4){ return d4.id === id; });
+        if(!drink) return;
+        drink.pfandType = this.value === '' ? null : this.value;
+        saveDrinkList();
+        updateAllPriceWithPfand();
+        updateTotal();
+        updatePfandSoldTotal();
+      });
+    }
+
+    var pageBtns = listEl6.querySelectorAll('.drinkPageBtn');
+    for(var pb = 0; pb < pageBtns.length; pb++){
+      pageBtns[pb].addEventListener('click', function(e){
+        e.preventDefault();
+        var id = this.getAttribute('data-id');
+        var drink = DRINKS.find(function(d3){ return d3.id === id; });
+        if(!drink) return;
+        var current = getDrinkPage(drink);
+        drink.page = current === 1 ? 2 : 1;
+        saveDrinkList();
+        this.textContent = 'Seite ' + drink.page;
+        var row = document.querySelector('#drinkRows .row[data-id="' + id + '"]');
+        if(row) row.setAttribute('data-page', drink.page);
       });
     }
 
