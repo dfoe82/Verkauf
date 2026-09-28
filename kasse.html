@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.13 - Design-Konsolidierung (bessere Lesbarkeit bei Sonnenlicht/Freiluft-Einsatz, konsistenteres
+          Erscheinungsbild nach vielen Iterationen): Sekundärtext (Preise, "verkauft"-Zähler, Pfand-Infos)
+          heller/kontrastreicher; Karten-/Eingabe-Ränder deutlicher sichtbar; Einstellungen-Sheet und alle
+          Dialoge (PIN, Bestätigung, Schnapszahl-Popup) mit Schatten für bessere Abhebung vom Hintergrund;
+          zwei verwaiste, vom Farbsystem abweichende Farbwerte korrigiert (Schnapszahl-Button-Aktivzustand,
+          PayPal-Konfigurationsmeldung); 12 uneinheitlich gewachsene Rundungs-Werte auf eine konsistente
+          5-stufige Skala vereinheitlicht; Löschen-Buttons (Getränke/Varianten/Pfand-Arten entfernen) von
+          "✕" auf 🗑 umgestellt, um Verwechslungen mit "Schließen" zu vermeiden.
   v1.12 - Events trennen (z.B. für eine Demo/einen Test, ohne die echten Verkaufsdaten zu beeinflussen):
           In der Firebase-Konfiguration gibt es jetzt ein optionales Feld "Event-Name". Leer = weiterhin
           das normale Verkaufs-Event (unverändertes Verhalten, bestehende Installationen sind vollständig
@@ -86,12 +94,22 @@
     --chalk-bg: #1c2b23;
     --chalk-bg-2: #223327;
     --chalk: #ece6d6;
-    --chalk-dim: #a9b3a6;
+    --chalk-dim: #c0c9bd;
     --amber: #e3a04a;
+    --amber-active: #cf9040;
     --blue-chalk: #7fb3c9;
-    --line: rgba(236,230,214,0.14);
+    --line: rgba(236,230,214,0.22);
     --red: #d9765a;
     --green: #7fae6f;
+    /* Konsolidierte Radius-Skala (ersetzt zuvor 12 leicht unterschiedliche Werte) */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
+    --radius-pill: 20px;
+    /* Elevation für Overlays/Sheets — hebt sie auch bei hellem Umgebungslicht vom Hintergrund ab */
+    --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.35);
+    --shadow-box: 0 8px 28px rgba(0,0,0,0.4);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none;}
   button{
@@ -138,7 +156,7 @@
     letter-spacing:0.5px;
     color: #241a0c;
     background: var(--amber);
-    border-radius:10px;
+    border-radius:var(--radius-lg);
     padding:2px 10px;
     margin: 0 auto 4px;
     width:fit-content;
@@ -163,7 +181,7 @@
     display:none;
     margin:0;
     padding: 6px 16px;
-    border-radius:20px;
+    border-radius:var(--radius-pill);
     border:1px solid rgba(227,160,74,0.5);
     background: rgba(227,160,74,0.10);
     color: var(--amber);
@@ -192,7 +210,7 @@
     width:66px;
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     color: var(--chalk);
     font-size:13px;
     padding:4px 6px;
@@ -215,7 +233,7 @@
   }
   .quickCashBtn{
     padding:6px 14px;
-    border-radius:8px;
+    border-radius:var(--radius-md);
     border:1px solid var(--line);
     background: rgba(236,230,214,0.06);
     color: var(--chalk-dim);
@@ -329,7 +347,7 @@
   .pageTabBtn{
     flex:1;
     padding:7px 0;
-    border-radius:8px;
+    border-radius:var(--radius-md);
     border:1px solid var(--line);
     background: rgba(236,230,214,0.06);
     color: var(--chalk-dim);
@@ -377,7 +395,7 @@
     justify-content:space-between;
     background: var(--chalk-bg-2);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius:var(--radius-lg);
     padding: 6px 8px 6px;
     gap:3px;
     min-width:0;
@@ -423,7 +441,7 @@
     width:38px;
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:5px;
+    border-radius:var(--radius-sm);
     color: var(--amber);
     font-size:11px;
     padding:2px 3px;
@@ -462,7 +480,7 @@
     width:44px;
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:5px;
+    border-radius:var(--radius-sm);
     color: var(--blue-chalk);
     font-size:12px;
     padding:2px 3px;
@@ -495,7 +513,7 @@
 
   .stepper{
     width:38px; height:38px;
-    border-radius:8px;
+    border-radius:var(--radius-md);
     border:1px solid var(--line);
     background: rgba(236,230,214,0.06);
     color: var(--chalk);
@@ -541,7 +559,7 @@
   .pickVariantsBtn{
     width:100%;
     padding: 9px 6px;
-    border-radius:8px;
+    border-radius:var(--radius-md);
     border:1px solid rgba(227,160,74,0.4);
     background: rgba(227,160,74,0.10);
     color: var(--amber);
@@ -571,7 +589,7 @@
   .stockWarning.critical{
     color: #fff;
     background: var(--red);
-    border-radius:4px;
+    border-radius:var(--radius-sm);
     padding:1px 5px;
     display:inline-block;
     float:right;
@@ -617,7 +635,7 @@
   }
   .arrowBtn{
     width:34px; height:28px;
-    border-radius:7px;
+    border-radius:var(--radius-sm);
     border:1px solid var(--line);
     background: rgba(236,230,214,0.06);
     color: var(--amber);
@@ -652,7 +670,7 @@
   .btn{
     display:block;
     padding: 11px 6px;
-    border-radius:9px;
+    border-radius:var(--radius-md);
     text-align:center;
     font-size:11.5px;
     font-weight:700;
@@ -684,7 +702,7 @@
     font-weight:700;
     min-width:16px;
     height:16px;
-    border-radius:8px;
+    border-radius:var(--radius-md);
     display:flex; align-items:center; justify-content:center;
     padding:0 3px;
   }
@@ -707,8 +725,9 @@
     width:100%;
     background: var(--chalk-bg-2);
     border-top: 1px solid var(--line);
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow: var(--shadow-sheet);
   }
   .settingsHeader{
     display:flex;
@@ -729,7 +748,7 @@
   }
   .settingsClose{
     width:30px; height:30px;
-    border-radius:8px;
+    border-radius:var(--radius-md);
     border:1px solid var(--line);
     background: rgba(236,230,214,0.06);
     color: var(--chalk-dim);
@@ -740,7 +759,7 @@
   .umsatzBox{
     background: rgba(227,160,74,0.08);
     border: 1px solid rgba(227,160,74,0.3);
-    border-radius: 10px;
+    border-radius:var(--radius-lg);
     padding: 10px 12px;
     text-align:center;
     margin-bottom:12px;
@@ -824,13 +843,13 @@
     flex:1;
     height:14px;
     background: rgba(236,230,214,0.08);
-    border-radius:7px;
+    border-radius:var(--radius-sm);
     overflow:hidden;
   }
   .statsShareBarFill{
     height:100%;
     background: var(--amber);
-    border-radius:7px;
+    border-radius:var(--radius-sm);
   }
   .statsSharePercent{
     font-size:12px;
@@ -862,13 +881,13 @@
     flex:1;
     height:12px;
     background: rgba(236,230,214,0.08);
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     overflow:hidden;
   }
   .statsHourlyBarFill{
     height:100%;
     background: var(--blue-chalk);
-    border-radius:6px;
+    border-radius:var(--radius-sm);
   }
   .statsHourlyCount{
     font-size:12px;
@@ -896,7 +915,7 @@
   .fbConfigFields input{
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:8px;
+    border-radius:var(--radius-md);
     color: var(--chalk);
     font-size:13px;
     padding:9px 10px;
@@ -933,7 +952,7 @@
     justify-content:space-between;
     background: var(--chalk-bg);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius:var(--radius-lg);
     padding: 12px 14px;
   }
   .variantsDrinkName{
@@ -965,7 +984,7 @@
     justify-content:space-between;
     background: var(--chalk-bg);
     border: 1px solid var(--line);
-    border-radius: 9px;
+    border-radius:var(--radius-md);
     padding: 10px 12px;
   }
   .drinkManageRow{
@@ -979,7 +998,7 @@
     width:64px;
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     color: var(--chalk);
     font-size:13px;
     padding:6px 8px;
@@ -992,7 +1011,7 @@
   }
   .variantDeleteBtn{
     width:28px; height:28px;
-    border-radius:7px;
+    border-radius:var(--radius-sm);
     border:1px solid rgba(217,118,90,0.4);
     background: rgba(217,118,90,0.12);
     color: var(--red);
@@ -1009,7 +1028,7 @@
     flex:1;
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:8px;
+    border-radius:var(--radius-md);
     color: var(--chalk);
     font-size:14px;
     padding:10px 12px;
@@ -1033,7 +1052,7 @@
     justify-content:space-between;
     background: var(--chalk-bg);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius:var(--radius-lg);
     padding: 13px 14px;
   }
   .pickVariantName{
@@ -1077,7 +1096,7 @@
   .orderCard{
     background: var(--chalk-bg);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius:var(--radius-lg);
     padding: 10px 12px;
   }
   .orderCardHead{
@@ -1091,7 +1110,7 @@
     color: #241a0c;
     font-weight:700;
     font-size:12px;
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     padding:2px 8px;
   }
   .orderTime{
@@ -1120,7 +1139,7 @@
   }
   .orderDoneBtn{
     padding: 6px 14px;
-    border-radius:7px;
+    border-radius:var(--radius-sm);
     border:1px solid rgba(127,174,111,0.4);
     background: rgba(127,174,111,0.12);
     color: var(--green);
@@ -1131,7 +1150,7 @@
   .orderDoneBtn:active{ transform:scale(0.95); }
   .orderCancelBtn{
     padding: 6px 14px;
-    border-radius:7px;
+    border-radius:var(--radius-sm);
     border:1px solid rgba(217,118,90,0.4);
     background: rgba(217,118,90,0.10);
     color: var(--red);
@@ -1164,7 +1183,7 @@
     white-space: pre-line;
     text-align:left;
     background: rgba(236,230,214,0.06);
-    border-radius:10px;
+    border-radius:var(--radius-lg);
     padding:12px 14px;
     margin-bottom:16px;
   }
@@ -1187,11 +1206,12 @@
   .confirmBox{
     background: var(--chalk-bg-2);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--radius-xl);
     padding: 20px 18px;
     max-width: 320px;
     width:100%;
     text-align:center;
+    box-shadow: var(--shadow-box);
   }
   .confirmText{
     font-size:15px;
@@ -1296,12 +1316,12 @@
   .schnapszahlBox{
     background: linear-gradient(180deg, rgba(227,160,74,0.16), var(--chalk-bg-2));
     border: 2px solid var(--amber);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     padding: 32px 24px 24px;
     max-width: 340px;
     width:100%;
     text-align:center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-box);
   }
   .schnapszahlEmoji{
     font-size:48px;
@@ -1344,7 +1364,7 @@
   }
   .paypalQrWrap{
     background:#ffffff;
-    border-radius:12px;
+    border-radius:var(--radius-lg);
     padding:12px;
     display:inline-block;
     margin-bottom:16px;
@@ -1361,7 +1381,7 @@
     text-decoration:none;
     margin-bottom:10px;
   }
-  .btn.schnapszahlOkBtn:active{ background: #cf9040; }
+  .btn.schnapszahlOkBtn:active{ background: var(--amber-active); }
 
   #pinLockOverlay{
     position:fixed; inset:0;
@@ -1398,11 +1418,12 @@
   .pinLockBox{
     background: var(--chalk-bg-2);
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     padding: 32px 24px;
     max-width: 320px;
     width:100%;
     text-align:center;
+    box-shadow: var(--shadow-box);
   }
   .pinLockIcon{
     font-size:40px;
@@ -1425,7 +1446,7 @@
     width:100%;
     background: rgba(236,230,214,0.08);
     border:1px solid var(--line);
-    border-radius:10px;
+    border-radius:var(--radius-lg);
     color: var(--chalk);
     font-size:24px;
     text-align:center;
@@ -1555,7 +1576,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.12</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.13</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -4156,7 +4177,7 @@
       html +=
         '<div class="variantEditRow">' +
           '<span class="variantEditName">' + variants[i] + '</span>' +
-          '<button type="button" class="variantDeleteBtn" data-index="' + i + '">✕</button>' +
+          '<button type="button" class="variantDeleteBtn" data-index="' + i + '">🗑</button>' +
         '</div>';
     }
     listEl5.innerHTML = html;
@@ -4233,7 +4254,7 @@
         '<div class="variantEditRow pfandTypeRow">' +
           '<input type="text" class="pfandTypeRenameInput" data-id="' + PFAND_TYPES[i].id + '" value="' + PFAND_TYPES[i].name + '">' +
           '<input type="number" class="pfandTypePriceInput" data-id="' + PFAND_TYPES[i].id + '" value="' + PFAND_TYPES[i].price.toFixed(2) + '" step="0.10" min="0" inputmode="decimal">' +
-          '<button type="button" class="variantDeleteBtn pfandTypeDeleteBtn" data-id="' + PFAND_TYPES[i].id + '"' + (PFAND_TYPES.length <= 1 ? ' disabled' : '') + '>✕</button>' +
+          '<button type="button" class="variantDeleteBtn pfandTypeDeleteBtn" data-id="' + PFAND_TYPES[i].id + '"' + (PFAND_TYPES.length <= 1 ? ' disabled' : '') + '>🗑</button>' +
         '</div>';
     }
     listEl7.innerHTML = html;
@@ -4378,7 +4399,7 @@
           '<input type="number" class="drinkStockInput" data-id="' + DRINKS[i].id + '" value="' + stockVal + '" placeholder="Bestand" min="0">' +
           '<select class="drinkPfandSelect" data-id="' + DRINKS[i].id + '" title="Pfand-Art">' + pfandOptions + '</select>' +
           '<button type="button" class="drinkPageBtn" data-id="' + DRINKS[i].id + '" title="Seite wechseln">Seite ' + pageVal + '</button>' +
-          '<button type="button" class="variantDeleteBtn" data-id="' + DRINKS[i].id + '">✕</button>' +
+          '<button type="button" class="variantDeleteBtn" data-id="' + DRINKS[i].id + '">🗑</button>' +
         '</div>';
     }
     listEl6.innerHTML = html;
@@ -4658,7 +4679,7 @@
   function setPaypalConfigMsg(text, isError){
     if(!paypalConfigMsgEl) return;
     paypalConfigMsgEl.textContent = text;
-    paypalConfigMsgEl.style.color = isError ? 'var(--danger, #e05a4e)' : 'var(--ok, #4caf7d)';
+    paypalConfigMsgEl.style.color = isError ? 'var(--red)' : 'var(--green)';
   }
 
   function getPaypalMeAddress(){
