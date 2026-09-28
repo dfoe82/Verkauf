@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.10 - Navigation in den Einstellungen korrigiert: Schließen einer Einstellungen-Unterseite (Pfand-,
+          PayPal- und Firebase-Konfiguration, Getränke/Artikel verwalten, Varianten verwalten und
+          bearbeiten, Statistik, PIN ändern) per ✕ oder Tippen außerhalb führt jetzt wieder zurück zur
+          Einstellungen-Übersicht statt zur Hauptseite der App. Varianten bearbeiten kehrt korrekt zu
+          "Varianten verwalten" zurück. Die Firebase-Konfiguration merkt sich, ob sie aus den
+          Einstellungen heraus geöffnet wurde, und kehrt nur dann dorthin zurück (wird sie automatisch
+          beim Start oder bei einem Verbindungsfehler geöffnet, landet man wie bisher auf der Hauptseite).
+  v1.9 - Bedienung im Live-Betrieb optimiert: Kleine, normale Bons (bis 4 Stück / 20 €) werden direkt
+         abgeschickt, ohne Vorschau — nur auffällige Bons (viele Positionen/hoher Betrag) sowie reine
+         Pfand-Rückgaben zeigen weiterhin eine Bestätigung. PayPal-Zahlung erscheint nicht mehr
+         automatisch als Vollbild-Overlay nach jedem Bon, sondern als optionaler "Mit PayPal
+         bezahlen"-Button direkt bei der Gesamtsumme (und zusätzlich in der Vorschau, falls diese
+         erscheint) — bei Barzahlung tippt man ihn einfach nicht an. Getränke- und Pfand-Stepper (+/-)
+         von 30px auf 38px vergrößert für bessere Daumenbedienung. Einen Artikel per Tap auf den Namen
+         auszublenden erfordert jetzt kurzes Halten (statt einfachem Tap), um versehentliches
+         Ausblenden unter Zeitdruck zu vermeiden; Wiedereinblenden bleibt ein normaler Tap.
   v1.8 - Mehrere Pfand-Arten möglich (z.B. Becher, Tasse, Teller) mit je eigenem Preis, konfigurierbar
          unter "Pfand-Konfiguration". Jedes Getränk kann unter "Getränke verwalten" einer Pfand-Art
          zugeordnet werden (oder "kein Pfand"). Die Pfand-Leiste zeigt jetzt eine Zeile pro genutzter
@@ -106,6 +122,20 @@
     font-variant-numeric: tabular-nums;
   }
   #totalValue.neg{ color: var(--red); }
+
+  #totalPaypalBtn{
+    display:none;
+    margin: 6px auto 0;
+    padding: 6px 16px;
+    border-radius:20px;
+    border:1px solid rgba(227,160,74,0.5);
+    background: rgba(227,160,74,0.10);
+    color: var(--amber);
+    font-size:12px;
+    font-weight:700;
+    font-family: inherit;
+  }
+  #totalPaypalBtn:active{ background: rgba(227,160,74,0.22); transform:scale(0.96); }
 
   #changeRow{
     display:flex;
@@ -233,8 +263,8 @@
     gap:10px;
   }
   #pfandBar .row.pfand .stepper{
-    width:34px; height:34px;
-    font-size:18px;
+    width:38px; height:38px;
+    font-size:19px;
   }
   #pfandBar #pfandReturnQty{
     font-size:13px;
@@ -422,12 +452,12 @@
   }
 
   .stepper{
-    width:30px; height:30px;
+    width:38px; height:38px;
     border-radius:8px;
     border:1px solid var(--line);
     background: rgba(236,230,214,0.06);
     color: var(--chalk);
-    font-size:17px;
+    font-size:19px;
     font-weight:700;
     display:flex; align-items:center; justify-content:center;
     line-height:1;
@@ -1087,6 +1117,11 @@
     padding:12px 14px;
     margin-bottom:16px;
   }
+  .paypalPreviewBtn{
+    width:100%;
+    box-sizing:border-box;
+    margin-bottom:12px;
+  }
 
   #confirmOverlay{
     position:fixed; inset:0;
@@ -1393,6 +1428,7 @@
   <div id="totalBar">
     <div class="label">Gesamt</div>
     <div id="totalValue">0,00 €</div>
+    <button type="button" id="totalPaypalBtn" style="display:none;">Mit PayPal bezahlen</button>
     <div id="changeRow" class="empty">
       <span>Erhalten:</span>
       <input type="number" id="receivedInput" step="0.50" min="0" inputmode="decimal" placeholder="0,00">
@@ -1462,7 +1498,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.8</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.10</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -1540,10 +1576,10 @@
       <button type="button" class="settingsClose" id="paypalConfigCloseBtn">✕</button>
     </div>
     <div class="variantsHint">
-      Trag hier eure PayPal.me-Adresse ein (z.B. <b>meinverein</b> für paypal.me/meinverein). Nach dem
-      Abschicken einer Bestellung wird dann automatisch ein Button und ein QR-Code zum Bezahlen mit dem
-      passenden Betrag angezeigt. Die eigentliche Zahlung läuft komplett bei PayPal, nicht in dieser App.
-      Ohne eingetragene Adresse wird nichts angezeigt.
+      Trag hier eure PayPal.me-Adresse ein (z.B. <b>meinverein</b> für paypal.me/meinverein). Sobald ein
+      Betrag angezeigt wird, erscheint darunter ein "Mit PayPal bezahlen"-Button mit QR-Code — bei
+      Barzahlung tippt man ihn einfach nicht an. Die eigentliche Zahlung läuft
+      komplett bei PayPal, nicht in dieser App. Ohne eingetragene Adresse wird nichts angezeigt.
     </div>
     <div class="fbConfigFields">
       <label>PayPal.me-Adresse <input type="text" id="paypalMeAddressInput" autocomplete="off" placeholder="z.B. meinverein"></label>
@@ -1640,6 +1676,7 @@
   <div class="confirmBox">
     <div class="orderPreviewTitle">Bestellung prüfen</div>
     <div class="orderPreviewText" id="orderPreviewText"></div>
+    <button type="button" class="btn secondary paypalPreviewBtn" id="orderPreviewPaypalBtn" style="display:none;">Mit PayPal bezahlen</button>
     <div class="confirmActions">
       <button type="button" class="btn secondary" id="orderPreviewCancel">Zurück</button>
       <button type="button" class="btn" id="orderPreviewOk">Abschicken</button>
@@ -2732,6 +2769,8 @@
     return qty;
   }
 
+  var totalPaypalBtnEl = document.getElementById('totalPaypalBtn');
+
   function updateTotal(){
     var sum = 0;
     for(var i = 0; i < PRICE_IDS.length; i++){
@@ -2750,6 +2789,9 @@
     var el = document.getElementById('totalValue');
     el.textContent = fmt(sum) + ' €';
     el.classList.toggle('neg', sum < 0);
+    // PayPal-Button direkt bei der Summe anzeigen, unabhängig davon, ob eine Vorschau erscheint —
+    // sonst wäre die PayPal-Option bei normalen (vorschaufrei direkt abgeschickten) Bons nicht erreichbar.
+    totalPaypalBtnEl.style.display = (getPaypalMeAddress() && sum > 0) ? 'block' : 'none';
     updateChange();
   }
 
@@ -3246,6 +3288,7 @@
   document.getElementById('changePinCancelBtn').addEventListener('click', function(e){
     e.preventDefault();
     changePinOverlay.classList.remove('open');
+    settingsOverlay.classList.add('open');
   });
 
   async function handleChangePinSubmit(){
@@ -3289,6 +3332,7 @@
     if(changePinTarget === 'settings'){
       window.localStorage.setItem(SETTINGS_PIN_KEY, simpleHashGeneric(val));
       changePinOverlay.classList.remove('open');
+      settingsOverlay.classList.add('open');
       setFbConfigMsgSafe('Einstellungen-PIN wurde geändert.');
       return;
     }
@@ -3311,6 +3355,7 @@
       }
 
       changePinOverlay.classList.remove('open');
+      settingsOverlay.classList.add('open');
       alert('App-PIN wurde geändert.');
     } catch(err){
       console.error('Fehler beim Ändern der App-PIN:', err);
@@ -3542,10 +3587,6 @@
       var totalQty = 0;
       for(var id in summary.itemCounts){ totalQty += summary.itemCounts[id]; }
       push(ref(db, 'stats/hourlyLog'), { time: Date.now(), qty: totalQty });
-
-      // PayPal-Zahloption anzeigen (Button + QR-Code), falls eine PayPal.me-Adresse hinterlegt ist.
-      // Die Zahlung selbst läuft komplett bei PayPal, die App zeigt nur den vorausgefüllten Link/QR.
-      showPaypalPayment(currentTotal);
     }
 
     // Pfand-Rückgabe kumulativ synchronisieren (auch bei reiner Rückgabe ohne Neukauf), für "im Umlauf" —
@@ -3582,7 +3623,20 @@
     return sum;
   }
 
-  // "Bestellung abschicken": zeigt zuerst eine Vorschau, tatsächliches Abschicken erst nach Bestätigung
+  // Schwellenwerte, ab denen ein Bon als "auffällig" gilt und trotzdem eine Vorschau bekommt.
+  // Normale, kleine Bons (z.B. "2 Bier") werden direkt abgeschickt, um bei Standardverkäufen
+  // nicht bei jedem einzelnen Bon einen Extra-Tap zu erzwingen.
+  var PREVIEW_MAX_QTY = 4;      // Gesamtmenge aller Getränke im Bon
+  var PREVIEW_MAX_AMOUNT = 20;  // Gesamtbetrag in Euro
+
+  function isUnusualOrder(summary){
+    var totalQty = 0;
+    for(var id in summary.itemCounts){ totalQty += summary.itemCounts[id]; }
+    return totalQty > PREVIEW_MAX_QTY || currentTotal > PREVIEW_MAX_AMOUNT;
+  }
+
+  // "Bestellung abschicken": normale Bons werden direkt abgeschickt, auffällige (viele Positionen /
+  // hoher Betrag) sowie reine Pfand-Rückgaben zeigen vorher weiterhin eine Vorschau zur Bestätigung.
   document.getElementById('resetBtn').addEventListener('click', function(e){
     e.preventDefault();
     var summary = buildOrderSummary();
@@ -3592,7 +3646,8 @@
     }
 
     if(!summary.hasItems){
-      // Reine Pfand-Rückgabe ohne Neukauf (z.B. Kunde bringt nur Becher zurück): eigener, klarerer Hinweistext
+      // Reine Pfand-Rückgabe ohne Neukauf (z.B. Kunde bringt nur Becher zurück): immer mit Vorschau,
+      // eigener, klarerer Hinweistext (lässt sich nach dem Abschicken nicht mehr korrigieren)
       var returnLines = [];
       for(var i = 0; i < PFAND_TYPES.length; i++){
         var qty = getPfandReturns(PFAND_TYPES[i].id);
@@ -3604,6 +3659,12 @@
       showOrderPreview(pfandOnlyText, function(){
         submitOrder(summary);
       });
+      return;
+    }
+
+    if(!isUnusualOrder(summary)){
+      // Normaler, kleiner Bon: direkt abschicken, keine Vorschau nötig
+      submitOrder(summary);
       return;
     }
 
@@ -3637,17 +3698,36 @@
   var orderPreviewOverlay = document.getElementById('orderPreviewOverlay');
   var orderPreviewTextEl = document.getElementById('orderPreviewText');
   var orderPreviewOkBtn = document.getElementById('orderPreviewOk');
+  var orderPreviewPaypalBtn = document.getElementById('orderPreviewPaypalBtn');
   var pendingOrderSubmit = null;
 
+  // PayPal wird nur noch auf Wunsch angezeigt (Button in der Vorschau), nicht mehr automatisch nach jedem
+  // Bon — sonst müsste man das Overlay auch bei ganz normaler Barzahlung jedes Mal aktiv wegtippen.
   function showOrderPreview(text, onConfirm){
     orderPreviewTextEl.textContent = text;
     pendingOrderSubmit = onConfirm;
+    var address = getPaypalMeAddress();
+    if(address && currentTotal > 0){
+      orderPreviewPaypalBtn.style.display = 'block';
+    } else {
+      orderPreviewPaypalBtn.style.display = 'none';
+    }
     orderPreviewOverlay.classList.add('open');
     requestAnimationFrame(function(){
       orderPreviewOverlay.focus();
       orderPreviewOkBtn.focus();
     });
   }
+
+  orderPreviewPaypalBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    showPaypalPayment(currentTotal);
+  });
+
+  totalPaypalBtnEl.addEventListener('click', function(e){
+    e.preventDefault();
+    showPaypalPayment(currentTotal);
+  });
 
   document.getElementById('orderPreviewCancel').addEventListener('click', function(e){
     e.preventDefault();
@@ -3748,13 +3828,36 @@
   });
 
   // Getränk per Tap auf den Namen aus-/einblenden
+  // Ausblenden eines Artikels erfordert kurzes Halten (statt einfachem Tap auf den Namen), damit ein
+  // versehentlicher Tap unter Zeitdruck nicht aus Versehen einen Artikel ausblendet. Wiedereinblenden
+  // bleibt ein normaler Tap, da das die ungefährliche, korrigierende Richtung ist.
   function wireNameToggle(){
     var nameEls = document.querySelectorAll('.row:not(.pfand) .name');
+    var HOLD_MS = 450;
     for(var n = 0; n < nameEls.length; n++){
-      nameEls[n].addEventListener('click', function(e){
-        var row = e.target.closest('.row');
-        row.classList.toggle('row-hidden');
-      });
+      (function(nameEl){
+        var pressTimer = null;
+        nameEl.addEventListener('pointerdown', function(e){
+          var row = e.target.closest('.row');
+          if(!row || row.classList.contains('row-hidden')) return; // Wiedereinblenden läuft über 'click'
+          pressTimer = setTimeout(function(){
+            pressTimer = null;
+            row.classList.add('row-hidden');
+          }, HOLD_MS);
+        });
+        function cancelPress(){
+          if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; }
+        }
+        nameEl.addEventListener('pointerup', cancelPress);
+        nameEl.addEventListener('pointerleave', cancelPress);
+        nameEl.addEventListener('pointercancel', cancelPress);
+        nameEl.addEventListener('click', function(e){
+          var row = e.target.closest('.row');
+          if(row && row.classList.contains('row-hidden')){
+            row.classList.remove('row-hidden');
+          }
+        });
+      })(nameEls[n]);
     }
   }
   wireNameToggle();
@@ -3905,9 +4008,13 @@
   document.getElementById('variantsCloseBtn').addEventListener('click', function(e){
     e.preventDefault();
     variantsOverlay.classList.remove('open');
+    settingsOverlay.classList.add('open');
   });
   variantsOverlay.addEventListener('click', function(e){
-    if(e.target === variantsOverlay) variantsOverlay.classList.remove('open');
+    if(e.target === variantsOverlay){
+      variantsOverlay.classList.remove('open');
+      settingsOverlay.classList.add('open');
+    }
   });
 
   // Varianten verwalten: Editier-Ansicht für ein einzelnes Getränk
@@ -3955,9 +4062,13 @@
   document.getElementById('variantsEditCloseBtn').addEventListener('click', function(e){
     e.preventDefault();
     variantsEditOverlay.classList.remove('open');
+    variantsOverlay.classList.add('open');
   });
   variantsEditOverlay.addEventListener('click', function(e){
-    if(e.target === variantsEditOverlay) variantsEditOverlay.classList.remove('open');
+    if(e.target === variantsEditOverlay){
+      variantsEditOverlay.classList.remove('open');
+      variantsOverlay.classList.add('open');
+    }
   });
 
   document.getElementById('variantAddBtn').addEventListener('click', function(e){
@@ -4069,9 +4180,13 @@
   document.getElementById('pfandConfigCloseBtn').addEventListener('click', function(e){
     e.preventDefault();
     pfandConfigOverlay.classList.remove('open');
+    settingsOverlay.classList.add('open');
   });
   pfandConfigOverlay.addEventListener('click', function(e){
-    if(e.target === pfandConfigOverlay) pfandConfigOverlay.classList.remove('open');
+    if(e.target === pfandConfigOverlay){
+      pfandConfigOverlay.classList.remove('open');
+      settingsOverlay.classList.add('open');
+    }
   });
 
   document.getElementById('pfandTypeAddBtn').addEventListener('click', function(e){
@@ -4278,6 +4393,11 @@
     }
   }
 
+  // Merkt sich, ob die Firebase-Konfiguration aus den Einstellungen heraus geöffnet wurde (dann soll das
+  // Schließen zurück zu den Einstellungen führen) oder automatisch beim Start/bei einem Fehler (dann gab
+  // es keine Einstellungen-Seite, zu der man zurückkehren könnte — Schließen führt zur Hauptseite).
+  var firebaseConfigOpenedFromSettings = false;
+
   async function openFirebaseConfigOverlay(){
     setFbConfigMsg('', false);
     // Versuche, eine evtl. schon gespeicherte Config zum Vorausfüllen zu laden (nur wenn PIN bekannt)
@@ -4285,17 +4405,20 @@
       var existing = await loadStoredFirebaseConfig(window.appPinValue);
       if(existing) fillFbFormFields(existing);
     }
+    firebaseConfigOpenedFromSettings = true;
     settingsOverlay.classList.remove('open');
     firebaseConfigOverlay.classList.add('open');
   }
 
   function showFirebaseSetupNeeded(){
     // Wird aufgerufen, wenn nach PIN-Eingabe noch keine (gültige) Firebase-Config hinterlegt ist
+    firebaseConfigOpenedFromSettings = false;
     setFbConfigMsg('Bitte Firebase-Zugangsdaten eintragen, um die App zu verwenden.', true);
     firebaseConfigOverlay.classList.add('open');
   }
 
   function alertNoFirebase(){
+    firebaseConfigOpenedFromSettings = false;
     setFbConfigMsg('Keine Verbindung zu Firebase — bitte Konfiguration prüfen.', true);
     firebaseConfigOverlay.classList.add('open');
   }
@@ -4307,9 +4430,13 @@
   document.getElementById('firebaseConfigCloseBtn').addEventListener('click', function(e){
     e.preventDefault();
     firebaseConfigOverlay.classList.remove('open');
+    if(firebaseConfigOpenedFromSettings) settingsOverlay.classList.add('open');
   });
   firebaseConfigOverlay.addEventListener('click', function(e){
-    if(e.target === firebaseConfigOverlay) firebaseConfigOverlay.classList.remove('open');
+    if(e.target === firebaseConfigOverlay){
+      firebaseConfigOverlay.classList.remove('open');
+      if(firebaseConfigOpenedFromSettings) settingsOverlay.classList.add('open');
+    }
   });
 
   document.getElementById('fbConfigSaveBtn').addEventListener('click', async function(e){
@@ -4337,6 +4464,7 @@
         setFbConfigMsg('Erfolgreich verbunden!', false);
         setTimeout(function(){
           firebaseConfigOverlay.classList.remove('open');
+          if(firebaseConfigOpenedFromSettings) settingsOverlay.classList.add('open');
         }, 1000);
       } else {
         setFbConfigMsg('Verbindung fehlgeschlagen — bitte Angaben prüfen (z.B. falsches Passwort oder falsche Datenbank-URL).', true);
@@ -4427,11 +4555,15 @@
     paypalConfigCloseBtn.addEventListener('click', function(e){
       e.preventDefault();
       paypalConfigOverlay.classList.remove('open');
+      settingsOverlay.classList.add('open');
     });
   }
   if(paypalConfigOverlay){
     paypalConfigOverlay.addEventListener('click', function(e){
-      if(e.target === paypalConfigOverlay) paypalConfigOverlay.classList.remove('open');
+      if(e.target === paypalConfigOverlay){
+        paypalConfigOverlay.classList.remove('open');
+        settingsOverlay.classList.add('open');
+      }
     });
   }
   var paypalConfigSaveBtn = document.getElementById('paypalConfigSaveBtn');
@@ -4444,7 +4576,10 @@
       try {
         if(localStorageAvailable) window.localStorage.setItem(PAYPAL_ADDRESS_LS_KEY, val);
         setPaypalConfigMsg(val ? 'Gespeichert.' : 'Entfernt — es wird kein PayPal-Button mehr angezeigt.', false);
-        setTimeout(function(){ paypalConfigOverlay.classList.remove('open'); }, 800);
+        setTimeout(function(){
+          paypalConfigOverlay.classList.remove('open');
+          settingsOverlay.classList.add('open');
+        }, 800);
       } catch(err){
         setPaypalConfigMsg('Fehler beim Speichern.', true);
       }
@@ -4576,17 +4711,25 @@
   document.getElementById('statsCloseBtn').addEventListener('click', function(e){
     e.preventDefault();
     statsOverlayEl.classList.remove('open');
+    settingsOverlay.classList.add('open');
   });
   statsOverlayEl.addEventListener('click', function(e){
-    if(e.target === statsOverlayEl) statsOverlayEl.classList.remove('open');
+    if(e.target === statsOverlayEl){
+      statsOverlayEl.classList.remove('open');
+      settingsOverlay.classList.add('open');
+    }
   });
 
   document.getElementById('drinksManageCloseBtn').addEventListener('click', function(e){
     e.preventDefault();
     drinksManageOverlay.classList.remove('open');
+    settingsOverlay.classList.add('open');
   });
   drinksManageOverlay.addEventListener('click', function(e){
-    if(e.target === drinksManageOverlay) drinksManageOverlay.classList.remove('open');
+    if(e.target === drinksManageOverlay){
+      drinksManageOverlay.classList.remove('open');
+      settingsOverlay.classList.add('open');
+    }
   });
 
   document.getElementById('drinkAddBtn').addEventListener('click', function(e){
