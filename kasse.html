@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.12 - Events trennen (z.B. für eine Demo/einen Test, ohne die echten Verkaufsdaten zu beeinflussen):
+          In der Firebase-Konfiguration gibt es jetzt ein optionales Feld "Event-Name". Leer = weiterhin
+          das normale Verkaufs-Event (unverändertes Verhalten, bestehende Installationen sind vollständig
+          kompatibel). Ein eingetragener Name (z.B. "demo") verschiebt ALLE Bestellungen und die komplette
+          Statistik dieses Geräts in einen eigenen, komplett getrennten Datenbereich innerhalb derselben
+          Firebase-Datenbank — verschiedene Events überschreiben oder vermischen sich nie. Die Einstellungen
+          zeigen das aktive Event ("Aktives Event: …"), und auf der Hauptseite erscheint zusätzlich ein gut
+          sichtbares Warn-Badge, sobald ein NICHT-Standard-Event aktiv ist, damit ein Demo-Gerät nicht aus
+          Versehen mit dem echten Event verwechselt wird. Nach dem Speichern lädt die Seite einmal neu,
+          damit der Wechsel sauber greift.
   v1.11 - "Gesamt"-Bereich in der Höhe deutlich verkleinert: Die Bargeld-Optionen (Erhalten/Rückgeld +
           Schnellbeträge 10/20/50 /100 €) sind jetzt standardmäßig eingeklappt und werden erst per Tap
           auf den neuen Button "Bar bezahlen" eingeblendet — analog zum "Mit PayPal bezahlen"-Button.
@@ -120,6 +130,18 @@
     text-transform:uppercase;
     color: var(--chalk-dim);
     margin-bottom:2px;
+  }
+  #eventBadge{
+    display:none;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    color: #241a0c;
+    background: var(--amber);
+    border-radius:10px;
+    padding:2px 10px;
+    margin: 0 auto 4px;
+    width:fit-content;
   }
   #totalValue{
     font-weight:700;
@@ -735,6 +757,15 @@
     font-weight:700;
     color: var(--amber);
     font-variant-numeric: tabular-nums;
+  }
+  .activeEventBox{
+    text-align:center;
+    font-size:12px;
+    color: var(--chalk-dim);
+    margin-bottom:12px;
+  }
+  .activeEventBox b{
+    color: var(--chalk);
   }
   .settingsList{
     display:grid;
@@ -1447,6 +1478,7 @@
 
   <div id="totalBar">
     <div class="label">Gesamt</div>
+    <div id="eventBadge" style="display:none;"></div>
     <div id="totalValue">0,00 €</div>
     <div id="totalActionsRow">
       <button type="button" id="cashToggleBtn">Bar bezahlen</button>
@@ -1523,13 +1555,14 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.11</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.12</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
       <div class="umsatzLabel">Umsatz (alle Getränke, ohne Pfand)</div>
       <div class="umsatzValue" id="umsatzValue">0,00 €</div>
     </div>
+    <div class="activeEventBox">Aktives Event: <b id="activeEventName">Standard</b></div>
     <div class="settingsList">
       <button type="button" class="btn secondary settingsItem" id="resetCounterBtn">Zähler zurücksetzen</button>
       <button type="button" class="btn secondary settingsItem" id="showAllBtn">Alle einblenden</button>
@@ -1574,6 +1607,15 @@
       <b>verschlüsselt mit deiner App-PIN</b> lokal auf diesem Gerät gespeichert.
     </div>
     <div class="fbConfigFields">
+      <label>Event-Name (optional)
+        <input type="text" id="fbEventName" autocomplete="off" placeholder="leer = Standard-Event">
+      </label>
+      <div class="variantsHint" style="margin-top:-6px;">
+        Trennt Bestellungen &amp; Statistik innerhalb derselben Firebase-Datenbank. Leer lassen für das
+        normale Verkaufs-Event. Für eine Demo z.B. „demo" eintragen — dann läuft dieses Gerät in einem
+        eigenen, komplett getrennten Datenbereich, ohne die echten Verkaufsdaten zu beeinflussen. Zum
+        Zurückwechseln einfach wieder leeren und speichern.
+      </div>
       <label>API-Key <input type="text" id="fbApiKey" autocomplete="off"></label>
       <label>Auth-Domain <input type="text" id="fbAuthDomain" autocomplete="off"></label>
       <label>Database-URL <input type="text" id="fbDatabaseURL" autocomplete="off"></label>
@@ -2353,6 +2395,42 @@
   var firebaseReady = false;
   var firebaseInitError = null;
 
+  // Event-Trennung: Ein optionaler Event-Name verschiebt ALLE Daten (Bestellungen + Statistik) unter
+  // einen eigenen Pfad "events/<name>/..." innerhalb derselben Firebase-Datenbank. Bleibt das Feld leer,
+  // werden weiterhin die ursprünglichen Pfade ("orders", "stats/...") verwendet — bestehende Installationen
+  // sind dadurch unverändert kompatibel. So lassen sich z.B. ein "demo"-Event und das echte Verkaufs-Event
+  // sauber getrennt in derselben Datenbank führen, ohne dass Testdaten die echte Statistik verfälschen.
+  var EVENT_PREFIX = '';
+
+  function sanitizeEventName(raw){
+    if(!raw) return '';
+    // Bewusst restriktiv (nicht nur die von Firebase verbotenen Zeichen . # $ [ ] /), damit Event-Namen
+    // immer eindeutig, URL-sicher und leicht mündlich weiterzugeben sind: nur a-z, 0-9 und "-".
+    return raw.trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  function dbPath(path){
+    return EVENT_PREFIX ? ('events/' + EVENT_PREFIX + '/' + path) : path;
+  }
+
+  function updateEventIndicator(){
+    var label = EVENT_PREFIX || 'Standard';
+    var settingsEl = document.getElementById('activeEventName');
+    if(settingsEl) settingsEl.textContent = label;
+    var badge = document.getElementById('eventBadge');
+    if(badge){
+      if(EVENT_PREFIX){
+        badge.textContent = 'Event: ' + EVENT_PREFIX;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  }
+
   var FB_CONFIG_LS_KEY = 'fbConfigEncrypted';
 
   async function loadStoredFirebaseConfig(pin){
@@ -2380,8 +2458,10 @@
       });
       db = getDatabase(fbApp);
       auth = getAuth(fbApp);
-      ordersRef = ref(db, 'orders');
-      statsRef = ref(db, 'stats');
+      EVENT_PREFIX = sanitizeEventName(cfg.eventName || '');
+      ordersRef = ref(db, dbPath('orders'));
+      statsRef = ref(db, dbPath('stats'));
+      updateEventIndicator();
 
       if(cfg.loginEmail && cfg.loginPassword){
         await signInWithEmailAndPassword(auth, cfg.loginEmail, cfg.loginPassword);
@@ -2951,7 +3031,7 @@
   function applyStatsDelta(itemCounts, itemVariants, sign){
     for(var id in itemCounts){
       (function(id, qty){
-        runTransaction(ref(db, 'stats/totals/' + id), function(current){
+        runTransaction(ref(db, dbPath('stats/totals/' + id)), function(current){
           return Number(current || 0) + sign * Number(qty);
         }).catch(function(err){
           showStatsSyncError(err);
@@ -2963,7 +3043,7 @@
         for(var vName in itemVariants[vid]){
           (function(vid, vName, qty){
             var safeVName = vName.replace(/[.#$\[\]\/]/g, '_');
-            runTransaction(ref(db, 'stats/variantTotals/' + vid + '/' + safeVName), function(current){
+            runTransaction(ref(db, dbPath('stats/variantTotals/' + vid + '/' + safeVName)), function(current){
               return Number(current || 0) + sign * Number(qty);
             }).catch(function(err){
               showStatsSyncError(err);
@@ -3192,6 +3272,7 @@
   function openSettingsAfterPin(){
     settingsPinOverlay.classList.remove('open');
     updateUmsatz();
+    updateEventIndicator();
     settingsOverlay.classList.add('open');
   }
 
@@ -3482,7 +3563,7 @@
         doneBtns[d].addEventListener('click', function(e){
           e.preventDefault();
           var key = this.getAttribute('data-key');
-          remove(ref(db, 'orders/' + key));
+          remove(ref(db, dbPath('orders/' + key)));
         });
       }
 
@@ -3497,7 +3578,7 @@
               if(order.itemCounts){
                 applyStatsDelta(order.itemCounts, order.itemVariants, -1);
               }
-              remove(ref(db, 'orders/' + order.key));
+              remove(ref(db, dbPath('orders/' + order.key)));
             });
           });
         })(orderQueue[c]);
@@ -3527,7 +3608,7 @@
     });
 
     // Live-Abo: zentrale Verkaufszähler je Getränk (von jedem Gerät aktuell gehalten)
-    onValue(ref(db, 'stats/totals'), function(snapshot){
+    onValue(ref(db, dbPath('stats/totals')), function(snapshot){
       var data = snapshot.val() || {};
       for(var i = 0; i < IDS.length; i++){
         var id = IDS[i];
@@ -3540,7 +3621,7 @@
     });
 
     // Live-Abo: kumulative Pfand-Rückgaben je Pfand-Art (für "im Umlauf"), von jedem Gerät aktuell gehalten
-    onValue(ref(db, 'stats/pfandReturnsTotal'), function(snapshot){
+    onValue(ref(db, dbPath('stats/pfandReturnsTotal')), function(snapshot){
       var data = snapshot.val() || {};
       for(var i = 0; i < PFAND_TYPES.length; i++){
         var id = PFAND_TYPES[i].id;
@@ -3550,7 +3631,7 @@
     });
 
     // Live-Abo: zentrale Verkaufszähler je Variante
-    onValue(ref(db, 'stats/variantTotals'), function(snapshot){
+    onValue(ref(db, dbPath('stats/variantTotals')), function(snapshot){
       var data = snapshot.val() || {};
       for(var id in variantTotals){
         variantTotals[id] = data[id] || {};
@@ -3628,7 +3709,7 @@
       // Dauerhafter, schlanker Log-Eintrag für den Verkaufsverlauf nach Uhrzeit (bleibt auch nach "Fertig" erhalten)
       var totalQty = 0;
       for(var id in summary.itemCounts){ totalQty += summary.itemCounts[id]; }
-      push(ref(db, 'stats/hourlyLog'), { time: Date.now(), qty: totalQty });
+      push(ref(db, dbPath('stats/hourlyLog')), { time: Date.now(), qty: totalQty });
     }
 
     // Pfand-Rückgabe kumulativ synchronisieren (auch bei reiner Rückgabe ohne Neukauf), für "im Umlauf" —
@@ -3636,7 +3717,7 @@
     for(var pt = 0; pt < PFAND_TYPES.length; pt++){
       (function(pfandId, qty){
         if(qty <= 0) return;
-        runTransaction(ref(db, 'stats/pfandReturnsTotal/' + pfandId), function(current){
+        runTransaction(ref(db, dbPath('stats/pfandReturnsTotal/' + pfandId)), function(current){
           return Number(current || 0) + qty;
         }).catch(function(err){
           showStatsSyncError(err);
@@ -3798,9 +3879,9 @@
     e.preventDefault();
     settingsOverlay.classList.remove('open');
     showConfirm('Wirklich alle Zähler (verkaufte Menge) für ALLE Geräte zurücksetzen?', 'Zurücksetzen', function(){
-      set(ref(db, 'stats/totals'), {});
-      set(ref(db, 'stats/variantTotals'), {});
-      set(ref(db, 'stats/pfandReturnsTotal'), {});
+      set(ref(db, dbPath('stats/totals')), {});
+      set(ref(db, dbPath('stats/variantTotals')), {});
+      set(ref(db, dbPath('stats/pfandReturnsTotal')), {});
       // Lokale Anzeige aktualisiert sich automatisch über das Live-Abo (onValue), sobald Firebase bestätigt
     });
   });
@@ -3810,10 +3891,10 @@
     e.preventDefault();
     settingsOverlay.classList.remove('open');
     showConfirm('ACHTUNG: Wirklich das komplette Event zurücksetzen? Löscht alle Zähler, alle offenen Bestellungen und den Verkaufsverlauf – für ALLE Geräte. Das kann nicht rückgängig gemacht werden.', 'Event zurücksetzen', function(){
-      set(ref(db, 'stats/totals'), {});
-      set(ref(db, 'stats/variantTotals'), {});
-      set(ref(db, 'stats/pfandReturnsTotal'), {});
-      set(ref(db, 'stats/hourlyLog'), {});
+      set(ref(db, dbPath('stats/totals')), {});
+      set(ref(db, dbPath('stats/variantTotals')), {});
+      set(ref(db, dbPath('stats/pfandReturnsTotal')), {});
+      set(ref(db, dbPath('stats/hourlyLog')), {});
       set(ordersRef, {});
 
       // Aktuellen Bon auf diesem Gerät ebenfalls leeren
@@ -4204,7 +4285,7 @@
           }
           delete pfandReturns[id];
           delete pfandReturnsTotal[id];
-          remove(ref(db, 'stats/pfandReturnsTotal/' + id));
+          remove(ref(db, dbPath('stats/pfandReturnsTotal/' + id)));
           savePfandTypes();
           saveDrinkList();
           renderPfandBar();
@@ -4379,8 +4460,8 @@
           delete freeJubilaeumCount[id];
           delete variantTotals[id];
           delete NAMES[id];
-          remove(ref(db, 'stats/totals/' + id));
-          remove(ref(db, 'stats/variantTotals/' + id));
+          remove(ref(db, dbPath('stats/totals/' + id)));
+          remove(ref(db, dbPath('stats/variantTotals/' + id)));
           saveDrinkList();
           saveVariantDefs();
           renderDrinkRows();
@@ -4409,8 +4490,9 @@
   var firebaseConfigOverlay = document.getElementById('firebaseConfigOverlay');
   var fbConfigMsgEl = document.getElementById('fbConfigMsg');
 
-  var FB_FIELD_IDS = ['fbApiKey', 'fbAuthDomain', 'fbDatabaseURL', 'fbProjectId', 'fbStorageBucket', 'fbMessagingSenderId', 'fbAppId', 'fbLoginEmail', 'fbLoginPassword'];
+  var FB_FIELD_IDS = ['fbEventName', 'fbApiKey', 'fbAuthDomain', 'fbDatabaseURL', 'fbProjectId', 'fbStorageBucket', 'fbMessagingSenderId', 'fbAppId', 'fbLoginEmail', 'fbLoginPassword'];
   var FB_FIELD_TO_KEY = {
+    fbEventName: 'eventName',
     fbApiKey: 'apiKey', fbAuthDomain: 'authDomain', fbDatabaseURL: 'databaseURL',
     fbProjectId: 'projectId', fbStorageBucket: 'storageBucket', fbMessagingSenderId: 'messagingSenderId',
     fbAppId: 'appId', fbLoginEmail: 'loginEmail', fbLoginPassword: 'loginPassword'
@@ -4506,11 +4588,13 @@
       setFbConfigMsg('Gespeichert. Verbinde…', false);
       await initFirebaseWithConfig(cfg);
       if(firebaseReady){
-        setFbConfigMsg('Erfolgreich verbunden!', false);
+        // Ein voller Seiten-Reload stellt sicher, dass alle Live-Abos sauber auf die (ggf. neuen)
+        // Event-Datenpfade zeigen und kein Zustand (Zähler, Bon, o.ä.) aus einer vorherigen
+        // Konfiguration im Speicher hängen bleibt — wichtig speziell beim Wechsel des Event-Namens.
+        setFbConfigMsg('Erfolgreich verbunden! Seite wird neu geladen…', false);
         setTimeout(function(){
-          firebaseConfigOverlay.classList.remove('open');
-          if(firebaseConfigOpenedFromSettings) settingsOverlay.classList.add('open');
-        }, 1000);
+          window.location.reload();
+        }, 900);
       } else {
         setFbConfigMsg('Verbindung fehlgeschlagen — bitte Angaben prüfen (z.B. falsches Passwort oder falsche Datenbank-URL).', true);
       }
@@ -4712,7 +4796,7 @@
     var container = document.getElementById('statsHourlyList');
     container.innerHTML = '<div class="statsEmpty">Lade…</div>';
 
-    get(ref(db, 'stats/hourlyLog')).then(function(snapshot){
+    get(ref(db, dbPath('stats/hourlyLog'))).then(function(snapshot){
       var data = snapshot.val() || {};
       var buckets = {}; // "14:00" -> Summe
       for(var key in data){
