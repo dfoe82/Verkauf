@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <!--
   Versionsverlauf (kasse.html):
+  v1.14 - Artikel-Kacheln in der Höhe verkleinert: Die "verkauft: X"-Zeile wurde entfernt und stattdessen
+          als kleines Abzeichen in der oberen rechten Ecke jeder Getränke-Kachel platziert (schwebt am
+          Kachelrand, nimmt keinen eigenen Platz mehr in der Kachel ein). Dadurch passen mehr Artikel ohne
+          Scrollen auf den Bildschirm, ohne dass die verkaufte Menge verloren geht. Der Abstand zwischen
+          den Kacheln wurde dafür minimal vergrößert, damit das Abzeichen nicht mit der Nachbarkachel
+          kollidiert. Pfand-Kacheln (in der fest sichtbaren Leiste oben) sind unverändert.
   v1.13 - Design-Konsolidierung (bessere Lesbarkeit bei Sonnenlicht/Freiluft-Einsatz, konsistenteres
           Erscheinungsbild nach vielen Iterationen): Sekundärtext (Preise, "verkauft"-Zähler, Pfand-Infos)
           heller/kontrastreicher; Karten-/Eingabe-Ränder deutlicher sichtbar; Einstellungen-Sheet und alle
@@ -367,19 +373,19 @@
     flex:1;
     min-height:0;
     min-width:0;
-    padding: 7px 8px 5px;
+    padding: 7px 10px 5px;
     display:flex;
     flex-direction:column;
     gap:6px;
     overflow-y:auto;
-    overflow-x:hidden;
+    overflow-x:visible;
     -webkit-overflow-scrolling: touch;
   }
 
   #drinkRows{
     display:grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap:6px;
+    gap:10px 8px;
     align-content:start;
   }
   #drinkRows .row[data-page="2"]{ display:none; }
@@ -390,6 +396,7 @@
   #list.reorder-mode #drinkRows .row[data-page="2"]{ display:flex; }
 
   .row{
+    position:relative;
     display:flex;
     flex-direction:column;
     justify-content:space-between;
@@ -399,6 +406,23 @@
     padding: 6px 8px 6px;
     gap:3px;
     min-width:0;
+  }
+  .soldBadge{
+    position:absolute;
+    top:-6px; right:-6px;
+    background: var(--chalk-bg);
+    border: 1px solid rgba(127,174,111,0.5);
+    color: var(--green);
+    font-size:10px;
+    font-weight:700;
+    font-variant-numeric: tabular-nums;
+    min-width:16px;
+    height:16px;
+    line-height:14px;
+    border-radius:var(--radius-md);
+    display:flex; align-items:center; justify-content:center;
+    padding:0 3px;
+    pointer-events:none;
   }
   .row.pfand{
     border-color: rgba(127,179,201,0.35);
@@ -601,7 +625,8 @@
     opacity: 0.45;
   }
   .row.row-hidden .counter,
-  .row.row-hidden .sold{
+  .row.row-hidden .sold,
+  .row.row-hidden .soldBadge{
     display:none;
   }
   .row.row-hidden .name::after{
@@ -621,7 +646,8 @@
     gap:10px;
   }
   #list.reorder-mode .counter,
-  #list.reorder-mode .sold{
+  #list.reorder-mode .sold,
+  #list.reorder-mode .soldBadge{
     display:none;
   }
   #list.reorder-mode .reorderControls{
@@ -1576,7 +1602,7 @@
 <div id="settingsOverlay">
   <div class="settingsSheet">
     <div class="settingsHeader">
-      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.13</span></div>
+      <div class="settingsTitle">Einstellungen <span class="versionTag">v1.14</span></div>
       <button type="button" class="settingsClose" id="settingsCloseBtn">✕</button>
     </div>
     <div class="umsatzBox">
@@ -2669,6 +2695,7 @@
   function drinkRowHtml(drink){
     return '' +
       '<div class="row" data-id="' + drink.id + '" data-page="' + getDrinkPage(drink) + '">' +
+        '<div class="soldBadge" data-role="sold" title="verkauft">0</div>' +
         '<div class="info">' +
           '<div class="name">' + drink.name + '</div>' +
           '<div class="price"><div class="priceMain"><input type="number" class="priceInput" disabled data-price-id="' + drink.id + '" value="' + drink.price.toFixed(2) + '" step="0.10" min="0" inputmode="decimal"> €</div><span class="priceWithPfand" data-price-id="' + drink.id + '"></span></div>' +
@@ -2680,7 +2707,6 @@
         '</div>' +
         '<button type="button" class="pickVariantsBtn" style="display:none;">Varianten wählen</button>' +
         '<div class="reorderControls"><button type="button" class="arrowBtn" data-move="up">▲</button><button type="button" class="arrowBtn" data-move="down">▼</button></div>' +
-        '<div class="sold" data-role="sold">verkauft: <b>0</b></div>' +
         '<div class="stockWarning" data-role="stockWarning" style="display:none;"></div>' +
       '</div>';
   }
@@ -2834,7 +2860,7 @@
   function updateSold(id){
     var row = document.querySelector('.row[data-id="' + id + '"]');
     if(!row) return;
-    var soldEl = row.querySelector('[data-role="sold"] b');
+    var soldEl = row.querySelector('[data-role="sold"]');
     if(!soldEl) return;
     soldEl.textContent = totals[id];
   }
